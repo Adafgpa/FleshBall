@@ -1,0 +1,9 @@
+name: FleshBall
+version: 1.0
+main: com.graveyard.fleshball.FleshBallPlugin
+api-version: 1.21
+
+commands:
+  fleshball:
+    description: Spawns a FleshBall swarm.
+    usage: /fleshball spawn <type> [density]
