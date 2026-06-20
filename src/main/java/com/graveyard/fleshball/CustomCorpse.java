@@ -1,7 +1,8 @@
 package com.graveyard.fleshball;
 
+import com.comphenix.protocol.wrappers.WrappedDataValue;
+import java.util.concurrent.ThreadLocalRandom;
 import com.comphenix.protocol.wrappers.EnumWrappers;
-import com.comphenix.protocol.wrappers.WrappedDataWatcher;
 import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.ProtocolManager;
@@ -15,6 +16,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -55,19 +57,25 @@ public class CustomCorpse {
         PacketContainer metaPacket = protocolManager.createPacket(PacketType.Play.Server.ENTITY_METADATA);
         metaPacket.getIntegers().write(0, fakeEntityId);
 
-        WrappedDataWatcher watcher = new WrappedDataWatcher();
-        WrappedDataWatcher.Serializer poseSerializer = WrappedDataWatcher.Registry.get(EnumWrappers.getEntityPoseClass());
-        
         // 33% chance for FALL_FLYING, 66% chance for SWIMMING
         boolean useFallFlying = ThreadLocalRandom.current().nextDouble() < 0.33;
         EnumWrappers.EntityPose selectedPose = useFallFlying ? EnumWrappers.EntityPose.FALL_FLYING : EnumWrappers.EntityPose.SWIMMING;
         
-        watcher.setObject(
-            new WrappedDataWatcher.WrappedDataWatcherObject(6, poseSerializer),
-            selectedPose.toNms()
-        );
+        // Get the serializer for the Pose (Type 20 in the protocol)
+        WrappedDataWatcher.Serializer poseSerializer = WrappedDataWatcher.Registry.get(EnumWrappers.getEntityPoseClass());
+        
+        // In 1.19.3+, we MUST use a List of WrappedDataValue instead of a DataWatcher
+        List<WrappedDataValue> dataValues = new ArrayList<>();
+        
+        dataValues.add(new WrappedDataValue(
+            6, // The Index (Slot 6 for Pose)
+            poseSerializer, 
+            selectedPose.toNms() // The actual value
+        ));
 
-        metaPacket.getWatchableCollectionModifier().write(0, watcher.getWatchableObjects());
+        // Write the list to the modern DataValue modifier
+        metaPacket.getDataValueCollectionModifier().write(0, dataValues);
+        
         sendPacket(player, metaPacket);
     }
 
