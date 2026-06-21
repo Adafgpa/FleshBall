@@ -26,16 +26,12 @@ public class FleshBallPlugin extends JavaPlugin {
                 for (FleshBallCluster cluster : activeClusters.values()) {
                     Entity core = cluster.getCenterCore();
                     if (core == null || !core.isValid()) {
+                        cluster.despawn();
                         activeClusters.remove(core.getUniqueId());
                         continue;
                     }
-                    
-                    Vector coreVel = core.getVelocity();
-                    for (Player p : Bukkit.getOnlinePlayers()) {
-                        if (p.getWorld().equals(core.getWorld())) {
-                            cluster.tickCluster(p, coreVel);
-                        }
-                    }
+
+                    custer.tickCluster(core.getVelocity());
                 }
             }
         }.runTaskTimer(this, 1L, 1L);
