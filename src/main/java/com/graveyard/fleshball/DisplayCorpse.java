@@ -9,6 +9,8 @@ import org.bukkit.util.Vector;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
+import main.java.com.graveyard.fleshball.LimbNode;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
@@ -28,12 +30,13 @@ public class DisplayCorpse {
     private ArmorStand torsoVehicle; 
     private final List<LimbNode> limbs = new ArrayList<>();
 
-    // NEW: Store the base outward-facing rotation for this specific node
+    private final Vector outwardNormal;
     private Quaternionf baseOutwardRotation;
 
-    public DisplayCorpse(Entity centralCore, Vector nominalOffset) {
+    public DisplayCorpse(Entity centralCore, Vector nominalOffset, Vector outwardNormal) {
         this.centralCore = centralCore;
         this.nominalOffset = nominalOffset;
+        this.outwardNormal = outwardNormal; // Save the passed normal
         this.currentPos = centralCore.getLocation().toVector().add(nominalOffset);
         this.randomPhase = ThreadLocalRandom.current().nextDouble(0, Math.PI * 2);
 
@@ -42,19 +45,26 @@ public class DisplayCorpse {
     }
 
     private void calculateBaseNormalRotation() {
-        // The nominalOffset vector IS our surface normal vector pointing outward
-        Vector3f normalDirection = new Vector3f(
-                (float) nominalOffset.getX(),
-                (float) nominalOffset.getY(),
-                (float) nominalOffset.getZ()
-        ).normalize();
+        Vector3f normal = new Vector3f(
+                (float) outwardNormal.getX(),
+                (float) outwardNormal.getY(),
+                (float) outwardNormal.getZ()
+        );
 
-        // Define what "Up" means for the mannequin (global sky direction)
+        // Fix #1: lookAlong targets the -Z axis. To expose the +Z "chest" face 
+        // to the outside of the bowl, we must look in the exact OPPOSITE direction!
+        Vector3f lookDir = new Vector3f(normal).mul(-1.0f);
+        
         Vector3f globalUp = new Vector3f(0f, 1f, 0f);
 
-        // LookAlong explicitly forces the entity's FORWARD face (+Z) to align with the normal directional vector,
-        // while keeping its spine comfortably oriented upright along the Y axis.
-        this.baseOutwardRotation = new Quaternionf().lookAlong(normalDirection, globalUp);
+        // Fix #2: Anti-Gimbal Lock. If the normal points almost straight down 
+        // (the bottom of the bowl), shift the "Up" vector to the X-axis so the 
+        // math doesn't panic and snap the bodies sideways.
+        if (Math.abs(lookDir.y()) > 0.99f) {
+            globalUp = new Vector3f(1f, 0f, 0f);
+        }
+
+        this.baseOutwardRotation = new Quaternionf().lookAlong(lookDir, globalUp);
     }
 
     public void spawn() {

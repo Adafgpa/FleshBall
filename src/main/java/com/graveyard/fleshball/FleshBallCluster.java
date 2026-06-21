@@ -14,28 +14,39 @@ public class FleshBallCluster {
     public FleshBallCluster(Entity centerCore, int targetCount) {
         this.centerCore = centerCore;
         this.targetCount = targetCount;
-        generateSphericalMatrix(targetCount, sphereRadius);
+        // Call the new bowl generator: targetCount, r (depth), R (outer radius)
+        generateBowlMatrix(targetCount, 2.0, 5.0); 
     }
 
-    public void generateSphericalMatrix(int targetCount, double sphereRadius) {
+    public void generateBowlMatrix(int targetCount, double r, double R) {
         this.clusterCorpses.clear(); 
         
-        // Fibonacci sphere generation for optimal surface distribution
         double goldenRatioPhi = Math.PI * (3.0 - Math.sqrt(5.0)); 
 
         for (int i = 0; i < targetCount; i++) {
-            double y = 1.0 - ((double) i / (targetCount - 1)) * 2.0;
-            double radiusAtY = Math.sqrt(1.0 - y * y);
+            // 1. Base Spherical Distribution (Fibonacci)
+            double normalizedY = 1.0 - ((double) i / (targetCount - 1)) * 2.0;
+            double phi = Math.acos(normalizedY); // 0 to PI
             double theta = i * goldenRatioPhi;
 
-            double x = Math.cos(theta) * radiusAtY;
-            double z = Math.sin(theta) * radiusAtY;
+            // 2. Apply the Convex Bowl Transformation
+            double u = phi / Math.PI;
+            double mappedY = -r * u;
+            double H = R * Math.pow(1.0 - u, 2.0);
 
-            Vector structuralOffset = new Vector(x, y, z).multiply(sphereRadius);
+            double mappedX = H * Math.cos(theta);
+            double mappedZ = H * Math.sin(theta);
 
-            // We no longer need to calculate static yaw/pitch here. 
-            // The DisplayCorpse handles its own dynamic rotation based on velocity.
-            clusterCorpses.add(new DisplayCorpse(centerCore, structuralOffset));
+            Vector structuralOffset = new Vector(mappedX, mappedY, mappedZ);
+
+            // 3. Calculate the true outward normal vector of the bowl surface
+            double nX = r * Math.cos(theta);
+            double nY = -2.0 * R * (1.0 - u);
+            double nZ = r * Math.sin(theta);
+            Vector outwardNormal = new Vector(nX, nY, nZ).normalize();
+
+            // Pass the generated normal down to the Corpse!
+            clusterCorpses.add(new DisplayCorpse(centerCore, structuralOffset, outwardNormal));
         }
     }
 
