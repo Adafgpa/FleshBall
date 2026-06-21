@@ -11,19 +11,22 @@ import org.joml.Vector3f;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class DisplayCorpse {
     private final Entity centralCore;
     private final Vector nominalOffset;
     
-    // Physics variables (Kept exactly from your math)
+    // Physics variables
     private Vector currentPos;
     private Vector velocity = new Vector(0, 0, 0);
-    private final double omega0 = 7.0;
-    private final double zeta = 0.4;
+    private final double omega0 = 6.0; // Slightly looser spring
+    private final double zeta = 0.5;   // Slightly more damping
     private double timeElapsed = 0.0;
+    
+    // NEW: Random phase so they don't sync up
+    private final double randomPhase;
 
-    // Entity variables
     private ArmorStand torsoVehicle; 
     private final List<LimbNode> limbs = new ArrayList<>();
 
@@ -31,33 +34,49 @@ public class DisplayCorpse {
         this.centralCore = centralCore;
         this.nominalOffset = nominalOffset;
         this.currentPos = centralCore.getLocation().toVector().add(nominalOffset);
+        // Assign a random starting phase between 0 and 2*PI
+        this.randomPhase = ThreadLocalRandom.current().nextDouble(0, Math.PI * 2);
     }
 
     public void spawn() {
         Location spawnLoc = centralCore.getLocation().add(nominalOffset);
 
-        // 1. Spawn the Torso Vehicle (ArmorStand is mathematically the most stable Bukkit passenger vehicle)
+        // 1. Spawn the Invisible Anchor (Small armor stands center passengers better)
         torsoVehicle = spawnLoc.getWorld().spawn(spawnLoc, ArmorStand.class, stand -> {
-            stand.setVisible(true);
+            stand.setVisible(false);
             stand.setMarker(true);
+            stand.setSmall(true); 
             stand.setGravity(false);
         });
 
-        // 2. Generate Limbs (Using basic materials for testing, you can change to custom heads/leather later)
-        // Note: The translation Vector3f(x, y, z) pushes the limb away from the torso center
+        // 2. Build the Cobblestone Mannequin!
+        // Vectors are (X: Left/Right, Y: Up/Down, Z: Forward/Back)
         
-        // Head (Shifted up)
-        LimbNode head = new LimbNode(spawnLoc, new ItemStack(Material.ZOMBIE_HEAD), new Vector3f(0f, 0.5f, 0f), new Vector3f(1f, 1f, 1f));
-        // Left Arm (Shifted left and slightly down)
-        LimbNode leftArm = new LimbNode(spawnLoc, new ItemStack(Material.ROTTEN_FLESH), new Vector3f(-0.4f, 0.2f, 0f), new Vector3f(0.5f, 1.5f, 0.5f));
-        // Right Arm (Shifted right and slightly down)
-        LimbNode rightArm = new LimbNode(spawnLoc, new ItemStack(Material.ROTTEN_FLESH), new Vector3f(0.4f, 0.2f, 0f), new Vector3f(0.5f, 1.5f, 0.5f));
+        // Torso: A flattened cobblestone block
+        LimbNode torso = new LimbNode(spawnLoc, Material.COBBLESTONE, 
+                new Vector3f(0f, 0.7f, 0f), new Vector3f(0.5f, 0.8f, 0.25f));
+        
+        // Head: A player head sitting on top of the torso
+        LimbNode head = new LimbNode(spawnLoc, new ItemStack(Material.ZOMBIE_HEAD), 
+                new Vector3f(0f, 1.3f, 0f), new Vector3f(0.6f, 0.6f, 0.6f));
+        
+        // Arms: Thin cobblestone sticks on the sides
+        LimbNode leftArm = new LimbNode(spawnLoc, Material.COBBLESTONE, 
+                new Vector3f(-0.4f, 0.7f, 0f), new Vector3f(0.15f, 0.7f, 0.15f));
+        
+        LimbNode rightArm = new LimbNode(spawnLoc, Material.COBBLESTONE, 
+                new Vector3f(0.4f, 0.7f, 0f), new Vector3f(0.15f, 0.7f, 0.15f));
+        
+        // Legs: Thin cobblestone sticks below the torso
+        LimbNode leftLeg = new LimbNode(spawnLoc, Material.COBBLESTONE, 
+                new Vector3f(-0.15f, 0.1f, 0f), new Vector3f(0.15f, 0.7f, 0.15f));
+        
+        LimbNode rightLeg = new LimbNode(spawnLoc, Material.COBBLESTONE, 
+                new Vector3f(0.15f, 0.1f, 0f), new Vector3f(0.15f, 0.7f, 0.15f));
 
-        limbs.add(head);
-        limbs.add(leftArm);
-        limbs.add(rightArm);
+        limbs.addAll(List.of(torso, head, leftArm, rightArm, leftLeg, rightLeg));
 
-        // 3. Mount the limbs to the Torso
+        // 3. Mount everything to the invisible Armor Stand
         for (LimbNode limb : limbs) {
             torsoVehicle.addPassenger(limb.getEntity());
         }
@@ -66,7 +85,6 @@ public class DisplayCorpse {
     public void tickPhysics(Vector coreVelocity) {
         if (torsoVehicle == null || !torsoVehicle.isValid()) return;
 
-        // 1. Calculate Spring Physics
         Location coreLoc = centralCore.getLocation();
         Vector targetPos = coreLoc.toVector().add(nominalOffset);
         
@@ -81,29 +99,31 @@ public class DisplayCorpse {
         this.currentPos.add(this.velocity.clone().multiply(dt));
         timeElapsed += dt;
 
-        // 2. Move the Torso (The limbs will automatically follow because they are passengers!)
         Location newLoc = new Location(coreLoc.getWorld(), currentPos.getX(), currentPos.getY(), currentPos.getZ());
         
-        // Optional: Make the torso face the core or the direction of movement
-        newLoc.setDirection(this.velocity.clone().normalize());
+        // Face the direction of movement (or face the core if at rest)
+        if (this.velocity.lengthSquared() > 0.01) {
+            newLoc.setDirection(this.velocity.clone().normalize());
+        } else {
+            newLoc.setDirection(z.normalize().multiply(-1)); 
+        }
+        
         torsoVehicle.teleport(newLoc);
-
-        // 3. Animate the Limbs (Make them flail based on velocity)
         animateFlailing();
     }
 
     private void animateFlailing() {
-        // Calculate a flail angle based on time and how fast the corpse is moving
         float speed = (float) this.velocity.length();
-        float flailAngle = (float) Math.sin(timeElapsed * (5.0 + speed)) * (0.5f + (speed * 0.2f));
+        // Incorporate the randomPhase so every corpse is out of sync!
+        float flailAngle = (float) Math.sin((timeElapsed * (8.0 + speed)) + randomPhase) * (0.3f + (speed * 0.15f));
 
-        // Create a quaternion rotation (e.g., rotating around the X axis to swing arms)
-        Quaternionf armRotation = new Quaternionf().rotateX(flailAngle);
+        // Rotate limbs slightly on the X and Z axis to simulate chaotic writhing
+        Quaternionf chaoticRotation = new Quaternionf()
+                .rotateX(flailAngle)
+                .rotateZ(flailAngle * 0.5f);
 
-        // In a real scenario, you'd apply different rotations to different limbs.
-        // For this example, we'll just flail all of them slightly.
         for (LimbNode limb : limbs) {
-            limb.updateRotation(armRotation);
+            limb.updateRotation(chaoticRotation);
         }
     }
 
