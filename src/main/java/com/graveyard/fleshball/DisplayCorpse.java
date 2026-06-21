@@ -69,7 +69,7 @@ public class DisplayCorpse {
         Location spawnLoc = centralCore.getLocation().add(nominalOffset);
 
         torsoVehicle = spawnLoc.getWorld().spawn(spawnLoc, ArmorStand.class, stand -> {
-            stand.setVisible(false);
+            stand.setVisible(true);
             stand.setMarker(true);
             stand.setSmall(true); 
             stand.setGravity(false);
