@@ -55,9 +55,15 @@ public class FleshBallCommand implements CommandExecutor {
 
         Location spawnLoc = player.getLocation();
 
-        // 3. Spawn the physical tracking core
-        Entity coreEntity = spawnLoc.getWorld().spawnEntity(spawnLoc, coreType);
-        
+        // 3. Spawn the physical tracking core (player or another entity)
+        Entity coreEntity;
+        if (args.length >= 2 && args[1].equalsIgnoreCase("me")) {
+            coreEntity = player; // The player becomes the core
+        } else {
+            // Keep your existing logic for spawning a specific mob
+            coreEntity = spawnLoc.getWorld().spawnEntity(spawnLoc, coreType);
+        }
+                
         // Apply vanilla modifications to keep the core clean and invisible
         coreEntity.setPersistent(false);
         if (coreEntity instanceof org.bukkit.entity.LivingEntity) {

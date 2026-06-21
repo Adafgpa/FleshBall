@@ -1,8 +1,7 @@
 package com.graveyard.fleshball;
 
-import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
@@ -13,31 +12,45 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class FleshBallPlugin extends JavaPlugin {
     private final Map<UUID, FleshBallCluster> activeClusters = new ConcurrentHashMap<>();
+    // NEW: We need to store last positions to calculate velocity manually
+    private final Map<UUID, Location> lastLocations = new ConcurrentHashMap<>();
 
     @Override
     public void onEnable() {
-        // Register your command!
         this.getCommand("fleshball").setExecutor(new FleshBallCommand(this));
 
-        // The Master Scheduler
         new BukkitRunnable() {
             @Override
             public void run() {
-                for (FleshBallCluster cluster : activeClusters.values()) {
+                for (Map.Entry<UUID, FleshBallCluster> entry : activeClusters.entrySet()) {
+                    FleshBallCluster cluster = entry.getValue();
                     Entity core = cluster.getCenterCore();
+
+                    // 1. SAFETY CHECK: Do this FIRST before using core
                     if (core == null || !core.isValid()) {
                         cluster.despawn();
-                        activeClusters.remove(core.getUniqueId());
+                        activeClusters.remove(entry.getKey());
+                        lastLocations.remove(entry.getKey()); // Clean up the map too
                         continue;
                     }
 
-                    cluster.tickCluster(core.getVelocity());
+                    // 2. VELOCITY CALCULATION
+                    Location currentLoc = core.getLocation();
+                    Location lastLoc = lastLocations.getOrDefault(core.getUniqueId(), currentLoc);
+                    
+                    // Velocity = current - last
+                    Vector velocity = currentLoc.toVector().subtract(lastLoc.toVector());
+                    
+                    // 3. TICK PHYSICS
+                    cluster.tickCluster(velocity);
+                    
+                    // 4. UPDATE TRACKING
+                    lastLocations.put(core.getUniqueId(), currentLoc);
                 }
             }
         }.runTaskTimer(this, 1L, 1L);
     }
 
-    // This is the method your Command class was looking for!
     public void registerCluster(UUID coreId, FleshBallCluster cluster) {
         activeClusters.put(coreId, cluster);
     }
