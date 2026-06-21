@@ -31,7 +31,7 @@ public class FleshBallPlugin extends JavaPlugin {
                         continue;
                     }
 
-                    custer.tickCluster(core.getVelocity());
+                    cluster.tickCluster(core.getVelocity());
                 }
             }
         }.runTaskTimer(this, 1L, 1L);

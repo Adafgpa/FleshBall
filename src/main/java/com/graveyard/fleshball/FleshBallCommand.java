@@ -1,4 +1,4 @@
-package com.graveyard.fleshball;
+    package com.graveyard.fleshball;
 
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
@@ -8,6 +8,9 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
+
+import com.graveyard.fleshball.FleshBallCluster;
+import com.graveyard.fleshball.FleshBallPlugin;
 
 public class FleshBallCommand implements CommandExecutor {
     private final FleshBallPlugin plugin;
@@ -67,13 +70,11 @@ public class FleshBallCommand implements CommandExecutor {
         }
 
         // 4. Initialize the packet matrix
-        FleshBallCluster cluster = new FleshBallCluster(plugin, coreEntity, density);
+        FleshBallCluster cluster = new FleshBallCluster(coreEntity, density);
         plugin.registerCluster(coreEntity.getUniqueId(), cluster);
 
         // 5. TRIGGER THE VISUALS! Send the initial spawn packets to all players in the world
-        for (Player p : spawnLoc.getWorld().getPlayers()) {
-            cluster.spawnForPlayer(p);
-        }
+        cluster.spawn();
 
         // 6. Send success message last
         player.sendMessage(ChatColor.GREEN + "Spawning The Sepulcher Swarm with a " + 

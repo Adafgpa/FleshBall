@@ -8,7 +8,7 @@ import java.util.List;
 public class FleshBallCluster {
     private final Entity centerCore;
     private final List<DisplayCorpse> clusterCorpses = new ArrayList<>();
-    private final double sphereRadius = 2.5; // Slightly expanded to accommodate flailing limbs
+    private final double sphereRadius = 2.5;
     private final int targetCount;
 
     public FleshBallCluster(Entity centerCore, int targetCount) {
