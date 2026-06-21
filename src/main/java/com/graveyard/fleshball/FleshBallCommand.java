@@ -1,4 +1,4 @@
-    package com.graveyard.fleshball;
+package com.graveyard.fleshball;
 
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
@@ -7,10 +7,10 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
-
-import com.graveyard.fleshball.FleshBallCluster;
-import com.graveyard.fleshball.FleshBallPlugin;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 
 public class FleshBallCommand implements CommandExecutor {
     private final FleshBallPlugin plugin;
@@ -29,64 +29,50 @@ public class FleshBallCommand implements CommandExecutor {
         Player player = (Player) sender;
 
         if (args.length < 2 || !args[0].equalsIgnoreCase("spawn")) {
-            player.sendMessage(ChatColor.RED + "Usage: /fleshball spawn <coreEntityType> [density]");
+            player.sendMessage(ChatColor.RED + "Usage: /fleshball spawn <me|EntityType> [density]");
             return true;
         }
 
-        // 1. Parse the Core Entity Type
+        // 1. Determine Core Entity
+        Entity coreEntity;
         String typeName = args[1].toUpperCase();
-        EntityType coreType;
-        try {
-            coreType = EntityType.valueOf(typeName);
-        } catch (IllegalArgumentException e) {
-            player.sendMessage(ChatColor.RED + "Invalid entity type! Try ZOMBIE, BAT, or ARMOR_STAND.");
-            return true;
+
+        if (typeName.equals("ME")) {
+            coreEntity = player;
+        } else {
+            try {
+                EntityType coreType = EntityType.valueOf(typeName);
+                coreEntity = player.getWorld().spawnEntity(player.getLocation(), coreType);
+                
+                // Only modify AI/Invisibility if it's a spawned mob, NOT the player!
+                coreEntity.setPersistent(false);
+                if (coreEntity instanceof LivingEntity) {
+                    LivingEntity living = (LivingEntity) coreEntity;
+                    living.setAI(false);
+                    living.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, Integer.MAX_VALUE, 0, false, false));
+                }
+            } catch (IllegalArgumentException e) {
+                player.sendMessage(ChatColor.RED + "Invalid entity type! Use 'me' or a valid EntityType.");
+                return true;
+            }
         }
 
-        // 2. Parse optional density parameter
+        // 2. Parse Density
         int density = 14;
         if (args.length >= 3) {
             try {
                 density = Integer.parseInt(args[2]);
             } catch (NumberFormatException e) {
-                player.sendMessage(ChatColor.YELLOW + "Invalid density number. Defaulting to 14.");
+                player.sendMessage(ChatColor.YELLOW + "Invalid density. Defaulting to 14.");
             }
         }
 
-        Location spawnLoc = player.getLocation();
-
-        // 3. Spawn the physical tracking core (player or another entity)
-        Entity coreEntity;
-        if (args.length >= 2 && args[1].equalsIgnoreCase("me")) {
-            coreEntity = player; // The player becomes the core
-        } else {
-            // Keep your existing logic for spawning a specific mob
-            coreEntity = spawnLoc.getWorld().spawnEntity(spawnLoc, coreType);
-        }
-                
-        // Apply vanilla modifications to keep the core clean and invisible
-        coreEntity.setPersistent(false);
-        if (coreEntity instanceof org.bukkit.entity.LivingEntity) {
-            org.bukkit.entity.LivingEntity living = (org.bukkit.entity.LivingEntity) coreEntity;
-            living.setAI(false); // Disables natural AI so it only moves via vehicles/velocity
-            living.addPotionEffect(new org.bukkit.potion.PotionEffect(
-                    org.bukkit.potion.PotionEffectType.INVISIBILITY, 
-                    Integer.MAX_VALUE, 0, false, false
-            ));
-        }
-
-        // 4. Initialize the packet matrix
+        // 3. Initialize and Register
         FleshBallCluster cluster = new FleshBallCluster(coreEntity, density);
+        cluster.spawn();
         plugin.registerCluster(coreEntity.getUniqueId(), cluster);
 
-        // 5. TRIGGER THE VISUALS! Send the initial spawn packets to all players in the world
-        cluster.spawn();
-
-        // 6. Send success message last
-        player.sendMessage(ChatColor.GREEN + "Spawning The Sepulcher Swarm with a " + 
-                ChatColor.GOLD + coreType.name() + ChatColor.GREEN + " core (" + density + " nodes)!");
-
-        return true; // ONLY ONE RETURN AT THE VERY END
+        player.sendMessage(ChatColor.GREEN + "Swarm initialized with core: " + coreEntity.getType());
+        return true;
     }
 }
-
