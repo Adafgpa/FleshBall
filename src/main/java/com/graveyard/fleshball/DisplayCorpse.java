@@ -106,25 +106,39 @@ public class DisplayCorpse {
     }
 
     public void tickPhysics(Vector coreVelocity) {
-        if (anchorVehicle == null || !anchorVehicle.isValid()) return;
+        // Safe check: If the central core or anchor becomes invalid (e.g., disconnect),
+        // execute despawn immediately to prevent orphaned entities!
+        if (centralCore == null || !centralCore.isValid() || anchorVehicle == null || !anchorVehicle.isValid()) {
+            despawn();
+            return;
+        }
 
         Location coreLoc = centralCore.getLocation();
         Vector targetPos = coreLoc.toVector().add(nominalOffset);
         
+        // --- Your Smooth Spring-Mass Damper System Equations ---
         Vector z = currentPos.clone().subtract(targetPos);
         Vector relVelocity = this.velocity.clone().subtract(coreVelocity);
         
-        Vector acceleration = relVelocity.multiply(-2.0 * zeta * omega0).add(z.multiply(-omega0 * omega0));
+        Vector acceleration = relVelocity.multiply(-2.0 * zeta * omega0)
+                                .add(z.multiply(-omega0 * omega0));
         
         double dt = 0.05; 
         this.velocity.add(acceleration.multiply(dt));
         this.currentPos.add(this.velocity.clone().multiply(dt));
         timeElapsed += dt;
 
+        // Move the physical anchor origin to the smooth spring position
         Location newLoc = new Location(coreLoc.getWorld(), currentPos.getX(), currentPos.getY(), currentPos.getZ());
         newLoc.setDirection(new Vector(0, 0, 1));
         anchorVehicle.teleport(newLoc);
 
+        // Teleport the limbs to the identical base location so their tracking roots match
+        for (LimbNode limb : limbs) {
+            limb.getEntity().teleport(newLoc);
+        }
+
+        // Animate the flailing offsets relative to the fresh physics update
         animateFlailing();
     }
     
