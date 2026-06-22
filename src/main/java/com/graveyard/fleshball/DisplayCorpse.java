@@ -138,21 +138,18 @@ public class DisplayCorpse {
         Quaternionf localWrithe = new Quaternionf().rotateX(swingAngle).rotateZ(swingAngle * 0.3f);
         Quaternionf torsoRotation = new Quaternionf(baseOutwardRotation).mul(localWrithe);
 
-        Vector3f anchorPos = new Vector3f(
-            (float) anchorVehicle.getLocation().getX(), 
-            (float) anchorVehicle.getLocation().getY(), 
-            (float) anchorVehicle.getLocation().getZ()
-        );
-
-        // Compute local sockets safely into distinct vectors
-        Vector3f worldLeftShoulder  = new Vector3f(jointLeftShoulder).rotate(torsoRotation).add(anchorPos);
-        Vector3f worldRightShoulder = new Vector3f(jointRightShoulder).rotate(torsoRotation).add(anchorPos);
-        Vector3f worldLeftHip       = new Vector3f(jointLeftHip).rotate(torsoRotation).add(anchorPos);
-        Vector3f worldRightHip      = new Vector3f(jointRightHip).rotate(torsoRotation).add(anchorPos);
+        // --- DO NOT ADD ANCHORPOS TO THESE JOINT VECTORS ---
+        // These now represent the LOCAL OFFSET from the anchor vehicle position
+        Vector3f localLeftShoulder  = new Vector3f(jointLeftShoulder).rotate(torsoRotation);
+        Vector3f localRightShoulder = new Vector3f(jointRightShoulder).rotate(torsoRotation);
+        Vector3f localLeftHip       = new Vector3f(jointLeftHip).rotate(torsoRotation);
+        Vector3f localRightHip      = new Vector3f(jointRightHip).rotate(torsoRotation);
         
-        // Update Torso & Head
-        torso.updateTransformation(new Vector3f(anchorPos), torsoRotation);
-        head.updateTransformation(new Vector3f(anchorPos).add(new Vector3f(offsetHead).rotate(torsoRotation)), torsoRotation);
+        // Torso is at the exact center of the anchor, so its offset is 0
+        torso.updateTransformation(new Vector3f(0f, 0f, 0f), torsoRotation);
+        
+        // Head offset relative to anchor
+        head.updateTransformation(new Vector3f(offsetHead).rotate(torsoRotation), torsoRotation);
 
         // Dangle Setup
         Quaternionf limbRotation = new Quaternionf()
@@ -162,11 +159,12 @@ public class DisplayCorpse {
 
         Vector3f limbDangleLocal = new Vector3f(0f, -0.3f, 0f).rotate(limbRotation);
 
-        // Use safe math allocations so transformations aren't stacked destructively
-        leftArm.updateTransformation(new Vector3f(worldLeftShoulder).add(limbDangleLocal), limbRotation);
-        rightArm.updateTransformation(new Vector3f(worldRightShoulder).add(limbDangleLocal), limbRotation);
-        leftLeg.updateTransformation(new Vector3f(worldLeftHip).add(limbDangleLocal), limbRotation);
-        rightLeg.updateTransformation(new Vector3f(worldRightHip).add(limbDangleLocal), limbRotation);
+        // Pass the local offsets directly! 
+        // Minecraft will add these offsets to the teleported anchor location perfectly.
+        leftArm.updateTransformation(new Vector3f(localLeftShoulder).add(limbDangleLocal), limbRotation);
+        rightArm.updateTransformation(new Vector3f(localRightShoulder).add(limbDangleLocal), limbRotation);
+        leftLeg.updateTransformation(new Vector3f(localLeftHip).add(limbDangleLocal), limbRotation);
+        rightLeg.updateTransformation(new Vector3f(localRightHip).add(limbDangleLocal), limbRotation);
     }
 
     public void despawn() {
