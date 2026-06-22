@@ -40,10 +40,10 @@ public class DisplayCorpse {
     private Quaternionf baseOutwardRotation;
 
     // Joints relative to Torso center
-    private final Vector3f jointLeftShoulder  = new Vector3f(-0.40f,  0.10f, 0.0f);
-    private final Vector3f jointRightShoulder = new Vector3f( 0.40f,  0.10f, 0.0f);
-    private final Vector3f jointLeftHip       = new Vector3f(-0.25f, -0.125f, 0.0f);
-    private final Vector3f jointRightHip      = new Vector3f( 0.25f, -0.125f, 0.0f);
+    private final Vector3f jointLeftShoulder  = new Vector3f(-0.35f,  0.30f, 0.0f);
+    private final Vector3f jointRightShoulder = new Vector3f( 0.35f,  0.30f, 0.0f);
+    private final Vector3f jointLeftHip       = new Vector3f(-0.18, -0.4, 0.0f);
+    private final Vector3f jointRightHip      = new Vector3f( 0.18, -0.4, 0.0f);
     private final Vector3f offsetHead         = new Vector3f( 0.00f,  0.65f, 0.0f);
 
     public DisplayCorpse(Entity centralCore, Vector nominalOffset, Vector outwardNormal) {
@@ -149,32 +149,36 @@ public class DisplayCorpse {
         float wave = (float) Math.sin((timeElapsed * (8.0 + speed)) + randomPhase);
         float swingAngle = wave * (0.2f + (speed * 0.15f));
 
+        // 1. Calculate Torso Rotation (Full pitch, roll, and writhe)
         Quaternionf localWrithe = new Quaternionf().rotateX(swingAngle).rotateZ(swingAngle * 0.3f);
         Quaternionf torsoRotation = new Quaternionf(baseOutwardRotation).mul(localWrithe);
 
+        // 2. Calculate Joint Sockets in World-Space (Relative to anchor)
         Vector3f localLeftShoulder  = new Vector3f(jointLeftShoulder).rotate(torsoRotation);
         Vector3f localRightShoulder = new Vector3f(jointRightShoulder).rotate(torsoRotation);
         Vector3f localLeftHip       = new Vector3f(jointLeftHip).rotate(torsoRotation);
         Vector3f localRightHip      = new Vector3f(jointRightHip).rotate(torsoRotation);
         
+        // Apply Torso & Head transformations
         torso.updateTransformation(new Vector3f(0f, 0f, 0f), torsoRotation);
-        
-        // --- HEAD FIX ---
-        // Spin the head 180 degrees around its local Y axis so it looks outward
         Quaternionf headRotation = new Quaternionf(torsoRotation).rotateY((float) Math.PI);
         head.updateTransformation(new Vector3f(offsetHead).rotate(torsoRotation), headRotation);
 
-        // --- LIMB FIX ---
-        // Limbs must inherit the torsoRotation so they align with the body's tilt!
-        Quaternionf limbRotation = new Quaternionf(torsoRotation)
+        // 3. Calculate Dangle Rotation (Decoupled from Torso Pitch/Roll)
+        // We isolate the horizontal orientation from baseOutwardRotation so limbs point DOWNWARD
+        Vector3f forwardDir = new Vector3f(0, 0, 1).rotate(baseOutwardRotation);
+        float yawAngle = (float) Math.atan2(forwardDir.x, forwardDir.z);
+        
+        // Base limb alignment faces straight down, rotated only by the horizontal heading and flail physics
+        Quaternionf limbRotation = new Quaternionf()
+                .rotateY(yawAngle) 
                 .rotateX(swingAngle * 1.2f) 
                 .rotateZ(swingAngle * 0.4f);
 
-        // Since the limb scale is 0.6 tall and pivots at its center, 
-        // we shift the mesh down by half its height (-0.3f) along its local Y axis.
-        // This ensures the top of the limb attaches to the joint socket!
+        // Shift the limb mesh down by half its height (-0.3f) so its top edge stays glued to the joint socket
         Vector3f limbCenterOffset = new Vector3f(0f, -0.3f, 0f).rotate(limbRotation);
 
+        // 4. Update Limbs directly at their newly proportioned joint sockets
         leftArm.updateTransformation(new Vector3f(localLeftShoulder).add(limbCenterOffset), limbRotation);
         rightArm.updateTransformation(new Vector3f(localRightShoulder).add(limbCenterOffset), limbRotation);
         leftLeg.updateTransformation(new Vector3f(localLeftHip).add(limbCenterOffset), limbRotation);
