@@ -9,6 +9,8 @@ import org.bukkit.util.Vector;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
+import main.java.com.graveyard.fleshball.LimbNode;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
@@ -81,14 +83,15 @@ public class DisplayCorpse {
         // Y = Z x X
         Vector3f yAxis = zAxis.cross(xAxis).normalize();
 
-        // 5. Construct the matrix
-        // A rotation matrix is constructed from the basis vectors. 
-        // We set the columns to X, Y, and Z axes respectively.
-        this.baseOutwardRotation = new Quaternionf().setFromNormalized(
+        // 5. Construct the matrix from the axes
+        org.joml.Matrix3f rotMatrix = new org.joml.Matrix3f(
             xAxis.x, xAxis.y, xAxis.z,
             yAxis.x, yAxis.y, yAxis.z,
             zAxis.x, zAxis.y, zAxis.z
         );
+        
+        // 6. Set the quaternion from the rotation matrix
+        this.baseOutwardRotation = new Quaternionf().setFromNormalized(rotMatrix);
     }
 
     public void spawn() {
