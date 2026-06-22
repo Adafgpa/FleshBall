@@ -12,15 +12,16 @@ import org.joml.Vector3f;
 
 public class LimbNode {
     private final Display displayEntity;
-    private final Vector3f baseTranslation;
+    private final Vector3f halfScaleCorrection = new Vector3f(0, 0, 0);
 
     // Constructor 1: For the Block Limbs (Cobblestone)
-    public LimbNode(Location spawnLoc, Material blockMaterial, Vector3f offset, Vector3f scale) {
-        // Block displays spawn from the corner. We subtract half the scale to center the pivot point!
-        this.baseTranslation = new Vector3f(
-                offset.x() - (scale.x() / 2f),
-                offset.y() - (scale.y() / 2f),
-                offset.z() - (scale.z() / 2f)
+    public LimbNode(Location spawnLoc, Material blockMaterial, Vector3f scale) {
+        // Block displays spawn from the corner. We need to save this correction
+        // to shift the pivot point internally during live matrix updates.
+        this.halfScaleCorrection.set(
+                -scale.x() / 2f,
+                -scale.y() / 2f,
+                -scale.z() / 2f
         );
 
         this.displayEntity = spawnLoc.getWorld().spawn(spawnLoc, BlockDisplay.class, entity -> {
@@ -30,9 +31,8 @@ public class LimbNode {
     }
 
     // Constructor 2: For the Item Head (Player Head)
-    public LimbNode(Location spawnLoc, ItemStack visualItem, Vector3f offset, Vector3f scale) {
-        this.baseTranslation = offset; // Items generally pivot from their center naturally
-        
+    public LimbNode(Location spawnLoc, ItemStack visualItem, Vector3f scale) {
+        // Items naturally pivot from their true center, no correction needed!
         this.displayEntity = spawnLoc.getWorld().spawn(spawnLoc, ItemDisplay.class, entity -> {
             entity.setItemStack(visualItem);
             entity.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.HEAD);
@@ -41,13 +41,14 @@ public class LimbNode {
     }
 
     private void applyInitialTransform(Display entity, Vector3f scale) {
+        // Initially spawn at the shared origin, correcting if it's a block
         entity.setTransformation(new Transformation(
-                baseTranslation,
-                new Quaternionf(), // Default rotation
+                new Vector3f(halfScaleCorrection),
+                new Quaternionf(), 
                 scale,
                 new Quaternionf()
         ));
-        entity.setInterpolationDuration(3); // Fast, smooth interpolation
+        entity.setInterpolationDuration(3); 
         entity.setTeleportDuration(3);
     }
 
@@ -55,14 +56,21 @@ public class LimbNode {
         return this.displayEntity;
     }
 
-    // Rotates the limb around its centered pivot point
-    public void updateRotation(Quaternionf newRotation) {
+    /**
+     * Updates both translation and rotation dynamically.
+     * Combines your corner-centering pivot adjustment with the joint physics.
+     */
+    public void updateTransformation(Vector3f dynamicTranslation, Quaternionf newRotation) {
         Transformation current = displayEntity.getTransformation();
         displayEntity.setInterpolationDelay(0);
         
+        // 1. We take our calculated joint center position.
+        // 2. We shift it by the half-scale correction so the block rotates cleanly around its middle/joint.
+        Vector3f correctedTranslation = new Vector3f(dynamicTranslation).add(halfScaleCorrection);
+
         displayEntity.setTransformation(new Transformation(
-                baseTranslation, // Keep it attached to the body
-                newRotation,     // Apply flailing
+                correctedTranslation,   // Position tracked to joint/torso frame
+                newRotation,            // Structural or gravity dangle orientation
                 current.getScale(), 
                 current.getRightRotation()
         ));
