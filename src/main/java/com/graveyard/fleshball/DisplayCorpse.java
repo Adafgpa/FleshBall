@@ -10,6 +10,8 @@ import org.joml.Matrix3f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
+import main.java.com.graveyard.fleshball.LimbNode;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
@@ -92,7 +94,7 @@ public class DisplayCorpse {
             stand.setPersistent(true);
         });
 
-        torso    = new LimbNode(spawnLoc, Material.COBBLESTONE, new Vector3f(0.8f, 0.25f, 0.5f));
+        torso    = new LimbNode(spawnLoc, Material.COBBLESTONE, new Vector3f(0.8f, 0.25f, 0.5f)); (0.5f, 0.8f, 0.25f)
         head     = new LimbNode(spawnLoc, new ItemStack(Material.ZOMBIE_HEAD), new Vector3f(0.5f, 0.5f, 0.5f));
         leftArm  = new LimbNode(spawnLoc, Material.COBBLESTONE, new Vector3f(0.2f, 0.6f, 0.2f));
         rightArm = new LimbNode(spawnLoc, Material.COBBLESTONE, new Vector3f(0.2f, 0.6f, 0.2f));
