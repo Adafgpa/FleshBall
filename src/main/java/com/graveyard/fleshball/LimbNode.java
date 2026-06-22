@@ -60,17 +60,16 @@ public class LimbNode {
      * Updates both translation and rotation dynamically.
      * Combines your corner-centering pivot adjustment with the joint physics.
      */
+    
     public void updateTransformation(Vector3f dynamicTranslation, Quaternionf newRotation) {
         Transformation current = displayEntity.getTransformation();
         displayEntity.setInterpolationDelay(0);
         
-        // 1. We take our calculated joint center position.
-        // 2. We shift it by the half-scale correction so the block rotates cleanly around its middle/joint.
-        Vector3f correctedTranslation = new Vector3f(dynamicTranslation).add(halfScaleCorrection);
-
+        // No extra correction here! dynamicTranslation is already the world-space
+        // center point of the limb node.
         displayEntity.setTransformation(new Transformation(
-                correctedTranslation,   // Position tracked to joint/torso frame
-                newRotation,            // Structural or gravity dangle orientation
+                dynamicTranslation,     
+                newRotation,            
                 current.getScale(), 
                 current.getRightRotation()
         ));

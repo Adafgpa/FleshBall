@@ -9,6 +9,8 @@ import org.bukkit.util.Vector;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
+import main.java.com.graveyard.fleshball.LimbNode;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
@@ -59,20 +61,36 @@ public class DisplayCorpse {
     }
 
     private void calculateBaseNormalRotation() {
-        Vector3f normal = new Vector3f(
+        // 1. Z-axis: The Normal vector (outward)
+        Vector3f zAxis = new Vector3f(
                 (float) outwardNormal.getX(),
                 (float) outwardNormal.getY(),
                 (float) outwardNormal.getZ()
         ).normalize();
 
-        Vector3f lookDir = new Vector3f(normal).mul(-1.0f);
-        Vector3f globalUp = new Vector3f(0f, 1f, 0f);
-
-        if (Math.abs(lookDir.y()) > 0.99f) {
-            globalUp = new Vector3f(1f, 0f, 0f);
+        // 2. Reference Up vector
+        Vector3f worldUp = new Vector3f(0f, 1f, 0f);
+        if (Math.abs(zAxis.dot(worldUp)) > 0.99f) {
+            worldUp.set(0f, 0f, 1f); 
         }
 
-        this.baseOutwardRotation = new Quaternionf().lookAlong(lookDir, globalUp);
+        // 3. X-axis: Tangent to the surface
+        // X = WorldUp x Z
+        Vector3f xAxis = worldUp.cross(zAxis).normalize();
+
+        // 4. Y-axis: The "Body Up" vector
+        // To ensure Y points 'up' relative to the surface and stays orthogonal:
+        // Y = Z x X
+        Vector3f yAxis = zAxis.cross(xAxis).normalize();
+
+        // 5. Construct the matrix
+        // A rotation matrix is constructed from the basis vectors. 
+        // We set the columns to X, Y, and Z axes respectively.
+        this.baseOutwardRotation = new Quaternionf().setFromNormalized(
+            xAxis.x, xAxis.y, xAxis.z,
+            yAxis.x, yAxis.y, yAxis.z,
+            zAxis.x, zAxis.y, zAxis.z
+        );
     }
 
     public void spawn() {
@@ -124,61 +142,78 @@ public class DisplayCorpse {
 
         animateFlailing();
     }
-
     private void animateFlailing() {
         float speed = (float) this.velocity.length();
         float wave = (float) Math.sin((timeElapsed * (8.0 + speed)) + randomPhase);
         float swingAngle = wave * (0.2f + (speed * 0.15f));
 
-        // 1. Calculate Torso Rigid Frame
+        // 1. Torso's Total Rotation
+        // Start with the base frame (the bowl normal alignment), then apply the local swing
         Quaternionf localWrithe = new Quaternionf()
                 .rotateX(swingAngle)
                 .rotateZ(swingAngle * 0.3f);
         Quaternionf torsoRotation = new Quaternionf(baseOutwardRotation).mul(localWrithe);
 
-        // Update Torso & Head (Bound rigidly to torso axes)
-        torso.updateTransformation(new Vector3f(0f, 0f, 0f), torsoRotation);
+        // Get the Anchor's position as the World Origin
+        Vector3f anchorPos = new Vector3f(
+            (float) anchorVehicle.getLocation().getX(), 
+            (float) anchorVehicle.getLocation().getY(), 
+            (float) anchorVehicle.getLocation().getZ()
+        );
+
+        // 2. Transform the Joints
+        // This is the core step: A joint position defined in torso-local space
+        // is rotated by the torso's orientation and added to the anchor.
+        Vector3f worldLeftShoulder  = new Vector3f(jointLeftShoulder).rotate(torsoRotation).add(anchorPos);
+        Vector3f worldRightShoulder = new Vector3f(jointRightShoulder).rotate(torsoRotation).add(anchorPos);
+        Vector3f worldLeftHip       = new Vector3f(jointLeftHip).rotate(torsoRotation).add(anchorPos);
+        Vector3f worldRightHip      = new Vector3f(jointRightHip).rotate(torsoRotation).add(anchorPos);
         
-        Vector3f posHead = new Vector3f(offsetHead).rotate(torsoRotation);
-        head.updateTransformation(posHead, torsoRotation);
+        // Update Torso display
+        torso.updateTransformation(new Vector3f(anchorPos), torsoRotation);
 
-        // 2. Calculate Independent Gravity Dangle Rotation around Virtual Joint Axes
-        // 180 degrees around X points the local up vector straight down to global -Y
+        // 3. Update Head
+        head.updateTransformation(new Vector3f(anchorPos).add(new Vector3f(offsetHead).rotate(torsoRotation)), torsoRotation);
+
+        // Now we are ready for the next step: 
+        // Calculating how the limbs dangle FROM these worldLeftShoulder, worldRightShoulder, etc.
+        // 2. Limb gravity dangle (pointing towards absolute -Y)
+        // We compute this once for all limbs, or you can randomize it per-limb for extra "flail" <--
         Quaternionf limbRotation = new Quaternionf()
-                .rotateX((float) Math.PI)   // Absolute gravity alignment
-                .rotateX(swingAngle * 1.2f) // Momentum drag flail on Joint X
-                .rotateZ(swingAngle * 0.4f); // Momentum drag flail on Joint Z
+                .rotateX((float) Math.PI)   // Initial dangle to point down
+                .rotateX(swingAngle * 1.2f) // Velocity-based drag
+                .rotateZ(swingAngle * 0.4f);
 
-        // 3. Compute the offset from the joint to the middle of the limb block
-        // Since limb height is 0.6f, the center sits 0.3f below the socket pivot
-        Vector3f localCenterFromJoint = new Vector3f(0f, -0.3f, 0f);
-        Vector3f worldCenterFromJoint = new Vector3f(localCenterFromJoint).rotate(limbRotation);
+        // This vector represents the limb's center point in local 'dangle' space
+        // Since our limb block is 0.6 tall, the center is 0.3 units below the socket
+        Vector3f limbDangleLocal = new Vector3f(0f, -0.3f, 0f);
 
-        // 4. Position and transform limbs through their respective sockets
+        // 3. Update Limbs
+        // Each limb takes its specific socket (from the Torso-rotated joint) 
+        // and adds the dangled offset.
         
         // Left Arm
-        Vector3f worldLeftShoulder = new Vector3f(jointLeftShoulder).rotate(torsoRotation);
-        Vector3f posLeftArm = new Vector3f(worldLeftShoulder).add(worldCenterFromJoint);
-        leftArm.updateTransformation(posLeftArm, limbRotation);
-
+        leftArm.updateTransformation(
+            worldLeftShoulder.add(new Vector3f(limbDangleLocal).rotate(limbRotation)), 
+            limbRotation
+        );
+        
         // Right Arm
-        Vector3f worldRightShoulder = new Vector3f(jointRightShoulder).rotate(torsoRotation);
-        Vector3f posRightArm = new Vector3f(worldRightShoulder).add(worldCenterFromJoint);
-        rightArm.updateTransformation(posRightArm, limbRotation);
-
+        rightArm.updateTransformation(
+            worldRightShoulder.add(new Vector3f(limbDangleLocal).rotate(limbRotation)), 
+            limbRotation
+        );
+        
         // Left Leg
-        Vector3f worldLeftHip = new Vector3f(jointLeftHip).rotate(torsoRotation);
-        Vector3f posLeftLeg = new Vector3f(worldLeftHip).add(worldCenterFromJoint);
-        leftLeg.updateTransformation(posLeftLeg, limbRotation);
-
+        leftLeg.updateTransformation(
+            worldLeftHip.add(new Vector3f(limbDangleLocal).rotate(limbRotation)), 
+            limbRotation
+        );
+        
         // Right Leg
-        Vector3f worldRightHip = new Vector3f(jointRightHip).rotate(torsoRotation);
-        Vector3f posRightLeg = new Vector3f(worldRightHip).add(worldCenterFromJoint);
-        rightLeg.updateTransformation(posRightLeg, limbRotation);
-    }
-
-    public void despawn() {
-        for (LimbNode limb : limbs) { limb.destroy(); }
-        if (anchorVehicle != null) { anchorVehicle.remove(); }
+        rightLeg.updateTransformation(
+            worldRightHip.add(new Vector3f(limbDangleLocal).rotate(limbRotation)), 
+            limbRotation
+        );
     }
 }
