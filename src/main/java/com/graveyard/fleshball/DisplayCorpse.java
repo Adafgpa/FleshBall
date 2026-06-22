@@ -68,10 +68,10 @@ public class DisplayCorpse {
             worldUp.set(0f, 0f, 1f); 
         }
 
-        Vector3f xAxis = worldUp.cross(zAxis).normalize();
-        Vector3f yAxis = zAxis.cross(xAxis).normalize();
+        // Use safe new instances to prevent in-place variable corruption
+        Vector3f xAxis = new Vector3f(worldUp).cross(zAxis).normalize();
+        Vector3f yAxis = new Vector3f(zAxis).cross(xAxis).normalize();
 
-        // Public API alignment safe initialization
         Matrix3f rotMatrix = new Matrix3f();
         rotMatrix.setColumn(0, xAxis);
         rotMatrix.setColumn(1, yAxis);
