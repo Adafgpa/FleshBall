@@ -42,8 +42,8 @@ public class DisplayCorpse {
     // Joints relative to Torso center
     private final Vector3f jointLeftShoulder  = new Vector3f(-0.35f,  0.30f, 0.0f);
     private final Vector3f jointRightShoulder = new Vector3f( 0.35f,  0.30f, 0.0f);
-    private final Vector3f jointLeftHip       = new Vector3f(-0.18, -0.4, 0.0f);
-    private final Vector3f jointRightHip      = new Vector3f( 0.18, -0.4, 0.0f);
+    private final Vector3f jointLeftHip       = new Vector3f(-0.18f, -0.4f, 0.0f);
+    private final Vector3f jointRightHip      = new Vector3f( 0.18f, -0.4f, 0.0f);
     private final Vector3f offsetHead         = new Vector3f( 0.00f,  0.65f, 0.0f);
 
     public DisplayCorpse(Entity centralCore, Vector nominalOffset, Vector outwardNormal) {
