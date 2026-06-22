@@ -81,12 +81,11 @@ public class DisplayCorpse {
         // Y = Z x X
         Vector3f yAxis = zAxis.cross(xAxis).normalize();
 
-        // 5. Construct the matrix from the axes
-        org.joml.Matrix3f rotMatrix = new org.joml.Matrix3f(
-            xAxis.x, xAxis.y, xAxis.z,
-            yAxis.x, yAxis.y, yAxis.z,
-            zAxis.x, zAxis.y, zAxis.z
-        );
+        // 5. matrix
+        org.joml.Matrix3f rotMatrix = new org.joml.Matrix3f();
+        rotMatrix.setColumn(0, xAxis);
+        rotMatrix.setColumn(1, yAxis);
+        rotMatrix.setColumn(2, zAxis);
         
         // 6. Set the quaternion from the rotation matrix
         this.baseOutwardRotation = new Quaternionf().setFromNormalized(rotMatrix);
@@ -135,13 +134,9 @@ public class DisplayCorpse {
         newLoc.setDirection(new Vector(0, 0, 1));
         anchorVehicle.teleport(newLoc);
 
-        for (LimbNode limb : limbs) {
-            limb.getEntity().teleport(newLoc);
-        }
-
         animateFlailing();
     }
-    
+
     private void animateFlailing() {
         float speed = (float) this.velocity.length();
         float wave = (float) Math.sin((timeElapsed * (8.0 + speed)) + randomPhase);
