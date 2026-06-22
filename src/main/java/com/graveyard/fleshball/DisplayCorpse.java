@@ -9,6 +9,8 @@ import org.bukkit.util.Vector;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
+import main.java.com.graveyard.fleshball.LimbNode;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
@@ -214,5 +216,14 @@ public class DisplayCorpse {
             worldRightHip.add(new Vector3f(limbDangleLocal).rotate(limbRotation)), 
             limbRotation
         );
+    }
+
+    public void despawn() {
+        for (LimbNode limb : limbs) { 
+            limb.destroy(); 
+        }
+        if (anchorVehicle != null && anchorVehicle.isValid()) { 
+            anchorVehicle.remove(); 
+        }
     }
 }
