@@ -226,11 +226,10 @@ public class DisplayCorpse {
             limb.getEntity().teleport(newLoc);
         }
 
-        animateFlailing();
+        animateFlailing(0.0);
     }
     
     private void animateFlailing(double rotationAngle) {
-        //t
         if (anchorVehicle == null || !anchorVehicle.isValid()) return;
 
         float speed = (float) this.velocity.length();
