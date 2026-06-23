@@ -27,8 +27,14 @@ public class FleshBallCommand implements CommandExecutor {
 
         Player player = (Player) sender;
 
-        if (args.length < 1) {
-            player.sendMessage(ChatColor.RED + "Usage: /fleshball <spawn|spin> ...");
+        if (!player.isOp() && !player.hasPermission("fleshball.admin")) {
+            player.sendMessage(ChatColor.RED + "You do not have permission to execute this command!");
+            return true;
+        }
+
+        // Updated usage string to indicate the optional radius parameter
+        if (args.length < 2 || !args[0].equalsIgnoreCase("spawn")) {
+            player.sendMessage(ChatColor.RED + "Usage: /fleshball spawn <me|EntityType> [density] [radius]");
             return true;
         }
 
