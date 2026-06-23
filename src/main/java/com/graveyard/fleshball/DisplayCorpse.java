@@ -15,6 +15,60 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class DisplayCorpse {
+    // =========================================================================
+    // CUSTOMIZABLE MATERIAL POOLS 
+    // Add, remove, or change any Bukkit Materials here to test different looks!
+    // =========================================================================
+    public static final Material[] TORSO_POOL = {
+        Material.COBBLESTONE,
+        Material.NETHERRACK,
+        Material.CRIMSON_WART_BLOCK,
+        Material.BONE_BLOCK,
+        Material.MUD,
+        Material.MAGMA_BLOCK
+    };
+
+    public static final Material[] HEAD_POOL = {
+        Material.ZOMBIE_HEAD,        // Will spawn as an ItemDisplay skull
+        Material.SKELETON_SKULL,     // Will spawn as an ItemDisplay skull
+        Material.NETHERRACK,         // Will spawn as a BlockDisplay cube
+        Material.BROWN_MUSHROOM_BLOCK,
+        Material.BONE_BLOCK
+    };
+
+    public static final Material[] LEFT_ARM_POOL = {
+        Material.COBBLESTONE,
+        Material.NETHERRACK,
+        Material.CRIMSON_STEM,
+        Material.SOUL_SOIL,
+        Material.MUD
+    };
+
+    public static final Material[] RIGHT_ARM_POOL = {
+        Material.COBBLESTONE,
+        Material.NETHERRACK,
+        Material.CRIMSON_STEM,
+        Material.SOUL_SOIL,
+        Material.MUD
+    };
+
+    public static final Material[] LEFT_LEG_POOL = {
+        Material.COBBLESTONE,
+        Material.NETHERRACK,
+        Material.BASALT,
+        Material.PACKED_MUD,
+        Material.SOUL_SAND
+    };
+
+    public static final Material[] RIGHT_LEG_POOL = {
+        Material.COBBLESTONE,
+        Material.NETHERRACK,
+        Material.BASALT,
+        Material.PACKED_MUD,
+        Material.SOUL_SAND
+    };
+    // =========================================================================
+
     private final Entity centralCore;
     private final Vector nominalOffset;
     
@@ -68,7 +122,6 @@ public class DisplayCorpse {
             worldUp.set(0f, 0f, 1f); 
         }
 
-        // Use safe new instances to prevent in-place variable corruption
         Vector3f xAxis = new Vector3f(worldUp).cross(zAxis).normalize();
         Vector3f yAxis = new Vector3f(zAxis).cross(xAxis).normalize();
 
@@ -92,12 +145,29 @@ public class DisplayCorpse {
             stand.setPersistent(true);
         });
 
-        torso    = new LimbNode(spawnLoc, Material.COBBLESTONE, new Vector3f(0.5f, 0.8f, 0.25f)); 
-        head     = new LimbNode(spawnLoc, new ItemStack(Material.ZOMBIE_HEAD), new Vector3f(0.5f, 0.5f, 0.5f));
-        leftArm  = new LimbNode(spawnLoc, Material.COBBLESTONE, new Vector3f(0.2f, 0.6f, 0.2f));
-        rightArm = new LimbNode(spawnLoc, Material.COBBLESTONE, new Vector3f(0.2f, 0.6f, 0.2f));
-        leftLeg  = new LimbNode(spawnLoc, Material.COBBLESTONE, new Vector3f(0.2f, 0.6f, 0.2f));
-        rightLeg = new LimbNode(spawnLoc, Material.COBBLESTONE, new Vector3f(0.2f, 0.6f, 0.2f));
+        // 1. Pick a random material variant for each limb from our pools
+        Material chosenTorso    = getRandomMaterial(TORSO_POOL);
+        Material chosenHead     = getRandomMaterial(HEAD_POOL);
+        Material chosenLeftArm  = getRandomMaterial(LEFT_ARM_POOL);
+        Material chosenRightArm = getRandomMaterial(RIGHT_ARM_POOL);
+        Material chosenLeftLeg  = getRandomMaterial(LEFT_LEG_POOL);
+        Material chosenRightLeg = getRandomMaterial(RIGHT_LEG_POOL);
+
+        // 2. Instantiate the limbs with their randomized textures
+        torso    = new LimbNode(spawnLoc, chosenTorso, new Vector3f(0.5f, 0.75f, 0.25f)); 
+        leftArm  = new LimbNode(spawnLoc, chosenLeftArm, new Vector3f(0.25f, 0.75f, 0.25f));
+        rightArm = new LimbNode(spawnLoc, chosenRightArm, new Vector3f(0.25f, 0.75f, 0.25f));
+        leftLeg  = new LimbNode(spawnLoc, chosenLeftLeg, new Vector3f(0.25f, 0.75f, 0.25f));
+        rightLeg = new LimbNode(spawnLoc, chosenRightLeg, new Vector3f(0.25f, 0.75f, 0.25f));
+
+        // 3. Dynamic layout allocation for the head
+        if (isSkullMaterial(chosenHead)) {
+            // Uses Constructor 2 (ItemDisplay) to render traditional skulls beautifully
+            head = new LimbNode(spawnLoc, new ItemStack(chosenHead), new Vector3f(0.5f, 0.5f, 0.5f));
+        } else {
+            // Uses Constructor 1 (BlockDisplay) if you specify a full block type like Netherrack!
+            head = new LimbNode(spawnLoc, chosenHead, new Vector3f(0.5f, 0.5f, 0.5f));
+        }
 
         limbs.addAll(List.of(torso, head, leftArm, rightArm, leftLeg, rightLeg));
         
@@ -105,9 +175,24 @@ public class DisplayCorpse {
         animateFlailing();
     }
 
+    /**
+     * Helper to grab a random entry from a material array pool.
+     */
+    private Material getRandomMaterial(Material[] pool) {
+        if (pool == null || pool.length == 0) return Material.COBBLESTONE;
+        int index = ThreadLocalRandom.current().nextInt(pool.length);
+        return pool[index];
+    }
+
+    /**
+     * Detects if a selected head material belongs to a standard item skull interface.
+     */
+    private boolean isSkullMaterial(Material mat) {
+        String name = mat.name();
+        return name.endsWith("_HEAD") || name.endsWith("_SKULL");
+    }
+
     public void tickPhysics(Vector coreVelocity) {
-        // Safe check: If the central core or anchor becomes invalid (e.g., disconnect),
-        // execute despawn immediately to prevent orphaned entities!
         if (centralCore == null || !centralCore.isValid() || anchorVehicle == null || !anchorVehicle.isValid()) {
             despawn();
             return;
@@ -116,7 +201,6 @@ public class DisplayCorpse {
         Location coreLoc = centralCore.getLocation();
         Vector targetPos = coreLoc.toVector().add(nominalOffset);
         
-        // --- Your Smooth Spring-Mass Damper System Equations ---
         Vector z = currentPos.clone().subtract(targetPos);
         Vector relVelocity = this.velocity.clone().subtract(coreVelocity);
         
@@ -128,17 +212,14 @@ public class DisplayCorpse {
         this.currentPos.add(this.velocity.clone().multiply(dt));
         timeElapsed += dt;
 
-        // Move the physical anchor origin to the smooth spring position
         Location newLoc = new Location(coreLoc.getWorld(), currentPos.getX(), currentPos.getY(), currentPos.getZ());
         newLoc.setDirection(new Vector(0, 0, 1));
         anchorVehicle.teleport(newLoc);
 
-        // Teleport the limbs to the identical base location so their tracking roots match
         for (LimbNode limb : limbs) {
             limb.getEntity().teleport(newLoc);
         }
 
-        // Animate the flailing offsets relative to the fresh physics update
         animateFlailing();
     }
     
@@ -149,36 +230,28 @@ public class DisplayCorpse {
         float wave = (float) Math.sin((timeElapsed * (8.0 + speed)) + randomPhase);
         float swingAngle = wave * (0.2f + (speed * 0.15f));
 
-        // 1. Calculate Torso Rotation (Full pitch, roll, and writhe)
         Quaternionf localWrithe = new Quaternionf().rotateX(swingAngle).rotateZ(swingAngle * 0.3f);
         Quaternionf torsoRotation = new Quaternionf(baseOutwardRotation).mul(localWrithe);
 
-        // 2. Calculate Joint Sockets in World-Space (Relative to anchor)
         Vector3f localLeftShoulder  = new Vector3f(jointLeftShoulder).rotate(torsoRotation);
         Vector3f localRightShoulder = new Vector3f(jointRightShoulder).rotate(torsoRotation);
         Vector3f localLeftHip       = new Vector3f(jointLeftHip).rotate(torsoRotation);
         Vector3f localRightHip      = new Vector3f(jointRightHip).rotate(torsoRotation);
         
-        // Apply Torso & Head transformations
         torso.updateTransformation(new Vector3f(0f, 0f, 0f), torsoRotation);
         Quaternionf headRotation = new Quaternionf(torsoRotation).rotateY((float) Math.PI);
         head.updateTransformation(new Vector3f(offsetHead).rotate(torsoRotation), headRotation);
 
-        // 3. Calculate Dangle Rotation (Decoupled from Torso Pitch/Roll)
-        // We isolate the horizontal orientation from baseOutwardRotation so limbs point DOWNWARD
         Vector3f forwardDir = new Vector3f(0, 0, 1).rotate(baseOutwardRotation);
         float yawAngle = (float) Math.atan2(forwardDir.x, forwardDir.z);
         
-        // Base limb alignment faces straight down, rotated only by the horizontal heading and flail physics
         Quaternionf limbRotation = new Quaternionf()
                 .rotateY(yawAngle) 
                 .rotateX(swingAngle * 1.2f) 
                 .rotateZ(swingAngle * 0.4f);
 
-        // Shift the limb mesh down by half its height (-0.3f) so its top edge stays glued to the joint socket
         Vector3f limbCenterOffset = new Vector3f(0f, -0.3f, 0f).rotate(limbRotation);
 
-        // 4. Update Limbs directly at their newly proportioned joint sockets
         leftArm.updateTransformation(new Vector3f(localLeftShoulder).add(limbCenterOffset), limbRotation);
         rightArm.updateTransformation(new Vector3f(localRightShoulder).add(limbCenterOffset), limbRotation);
         leftLeg.updateTransformation(new Vector3f(localLeftHip).add(limbCenterOffset), limbRotation);
