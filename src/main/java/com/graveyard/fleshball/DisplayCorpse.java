@@ -231,12 +231,8 @@ public class DisplayCorpse {
         if (anchorVehicle == null || !anchorVehicle.isValid()) return;
 
         float speed = (float) this.velocity.length();
-        // We retain a high frequency frequency shift so they shake quickly when moving...
-        float wave = (float) Math.sin((timeElapsed * (8.0 + speed * 0.5)) + randomPhase);
-    
-        // FIX: Dynamic attenuation curve. Instead of growing with speed, 
-        // the amplitude shrinks as speed increases, stabilizing the limbs during high-speed runs.
-        float swingAngle = wave * (0.2f / (1.0f + speed * 0.6f));
+        float wave = (float) Math.sin((timeElapsed * (8.0 + speed)) + randomPhase);
+        float swingAngle = wave * (0.1f + (speed * 0.05f));
 
         Quaternionf localWrithe = new Quaternionf().rotateX(swingAngle).rotateZ(swingAngle * 0.3f);
         Quaternionf torsoRotation = new Quaternionf(baseOutwardRotation).mul(localWrithe);
