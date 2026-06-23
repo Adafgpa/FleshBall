@@ -11,9 +11,8 @@ public class FleshBallCluster {
     private final double maxRadius;
     private final int targetCount;
 
-    // NEW: Core fields for dynamic bowl rotation
-    private double rotationSpeed = 0.0; // In radians per tick (e.g., 0.05)
-    private double currentRotationAngle = 0.0;
+    private double currentAngle = 0.0;
+    private double rotationSpeed = 0.0;
 
     public FleshBallCluster(Entity centerCore, int targetCount, double maxRadius) {
         this.centerCore = centerCore;
@@ -70,7 +69,7 @@ public class FleshBallCluster {
     public void setRotationSpeed(double rotationSpeed) {
         this.rotationSpeed = rotationSpeed;
     }
-    
+
     // UPDATED: Advances the orbit tracker and forwards the angle to the corpses
     public void tickCluster(Vector currentCoreVelocity) {
         // 1. Advance the accumulation angle by our rotation speed
