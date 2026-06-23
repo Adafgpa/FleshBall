@@ -16,7 +16,7 @@ public class FleshBallCluster {
         this.targetCount = targetCount;
         this.maxRadius = maxRadius;
         // Call the new bowl generator: targetCount, r (depth), R (outer radius)
-        generateBowlMatrix(targetCount, 2.0, 5.0); 
+        generateBowlMatrix(this.targetCount,this.maxRadius); 
     }
 
     public void generateBowlMatrix(int targetCount, double maxRadius) {
