@@ -1,13 +1,12 @@
 package com.graveyard.fleshball;
 
 import org.bukkit.NamespacedKey;
-import org.bukkit.entity.ArmorStand;
-import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Interaction;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.UUID;
@@ -20,19 +19,19 @@ public class FleshBallDamageListener implements Listener {
     }
 
     @EventHandler
-    public void onCorpseDamage(EntityDamageEvent event) {
-        // 1. Check if the entity hit is one of our invisible tracking armor stands
-        if (!(event.getEntity() instanceof ArmorStand)) return;
-        ArmorStand stand = (ArmorStand) event.getEntity();
+    public void onCorpseDamage(EntityDamageByEntityEvent event) {
+        // 1. Check if the entity hit is one of our invisible tracking Interaction hitboxes
+        if (!(event.getEntity() instanceof Interaction)) return;
+        Interaction hitbox = (Interaction) event.getEntity();
 
         NamespacedKey coreKey = new NamespacedKey(plugin, "associated_core");
-        if (!stand.getPersistentDataContainer().has(coreKey, PersistentDataType.STRING)) return;
+        if (!hitbox.getPersistentDataContainer().has(coreKey, PersistentDataType.STRING)) return;
 
-        // 2. Cancel the event immediately so the armor stand doesn't break or pop off
+        // 2. Cancel the event immediately so it doesn't log permanent internal execution damage
         event.setCancelled(true);
 
         // 3. Extract the linked Core UUID
-        String uuidStr = stand.getPersistentDataContainer().get(coreKey, PersistentDataType.STRING);
+        String uuidStr = hitbox.getPersistentDataContainer().get(coreKey, PersistentDataType.STRING);
         if (uuidStr == null) return;
         UUID coreUuid = UUID.fromString(uuidStr);
 
@@ -49,13 +48,10 @@ public class FleshBallDamageListener implements Listener {
         double originalDamage = event.getDamage();
         double transferredDamage = originalDamage * cluster.getDamageTransferCoefficient();
 
-        // 6. Pass the damage smoothly down to the core boss entity
-        if (event instanceof EntityDamageByEntityEvent) {
-            EntityDamageByEntityEvent edbe = (EntityDamageByEntityEvent) event;
-            // Retains information on who hit it (useful for death messages/aggro)
-            livingCore.damage(transferredDamage, edbe.getDamager());
-        } else {
-            livingCore.damage(transferredDamage);
-        }
+        // 6. Reset invulnerability frames so arrow rapid-fire/spam registers flawlessly
+        livingCore.setNoDamageTicks(0);
+
+        // 7. Pass the damage smoothly down to the core boss entity while retaining the damager profile
+        livingCore.damage(transferredDamage, event.getDamager());
     }
 }
