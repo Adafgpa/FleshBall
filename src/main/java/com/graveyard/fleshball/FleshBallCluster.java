@@ -70,21 +70,15 @@ public class FleshBallCluster {
     public void setRotationSpeed(double rotationSpeed) {
         this.rotationSpeed = rotationSpeed;
     }
-
-    // Updated control loop to calculate global matrix rotation angles
+    
+    // UPDATED: Advances the orbit tracker and forwards the angle to the corpses
     public void tickCluster(Vector currentCoreVelocity) {
-        if (rotationSpeed != 0.0) {
-            currentRotationAngle += rotationSpeed;
-            // Keep bounds wrapped between 0 and 2PI safely
-            if (currentRotationAngle > Math.PI * 2) {
-                currentRotationAngle -= Math.PI * 2;
-            } else if (currentRotationAngle < 0) {
-                currentRotationAngle += Math.PI * 2;
-            }
-        }
+        // 1. Advance the accumulation angle by our rotation speed
+        this.currentAngle += this.rotationSpeed;
 
+        // 2. Pass the dynamic angle directly into the physics calculator
         for (DisplayCorpse corpse : clusterCorpses) {
-            corpse.tickPhysics(currentCoreVelocity, currentRotationAngle);
+            corpse.tickPhysics(currentCoreVelocity, this.currentAngle);
         }
     }
     

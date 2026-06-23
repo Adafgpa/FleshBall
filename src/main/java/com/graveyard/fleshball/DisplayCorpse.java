@@ -205,7 +205,7 @@ public class DisplayCorpse {
         Location coreLoc = centralCore.getLocation();
 
         Vector rotatedOffset = nominalOffset.clone().rotateAroundY(rotationAngle);
-        Vector targetPos = coreLoc.toVector().add(nominalOffset);
+        Vector targetPos = coreLoc.toVector().add(rotatedOffset);
         
         Vector z = currentPos.clone().subtract(targetPos);
         Vector relVelocity = this.velocity.clone().subtract(coreVelocity);
@@ -226,7 +226,7 @@ public class DisplayCorpse {
             limb.getEntity().teleport(newLoc);
         }
 
-        animateFlailing(0.0);
+        animateFlailing(rotationAngle);
     }
     
     private void animateFlailing(double rotationAngle) {
@@ -238,10 +238,10 @@ public class DisplayCorpse {
 
         Quaternionf localWrithe = new Quaternionf().rotateX(swingAngle).rotateZ(swingAngle * 0.3f);
         
-        // FIXED: Update base outward rotation structure to account for the orbit's dynamic direction change
+        // Rotate the base outward direction matrix by the current orbit heading!
         Quaternionf rotatedBaseOutward = new Quaternionf().rotateY((float) rotationAngle).mul(baseOutwardRotation);
         Quaternionf torsoRotation = new Quaternionf(rotatedBaseOutward).mul(localWrithe);
-
+        
         Vector3f localLeftShoulder  = new Vector3f(jointLeftShoulder).rotate(torsoRotation);
         Vector3f localRightShoulder = new Vector3f(jointRightShoulder).rotate(torsoRotation);
         Vector3f localLeftHip       = new Vector3f(jointLeftHip).rotate(torsoRotation);
