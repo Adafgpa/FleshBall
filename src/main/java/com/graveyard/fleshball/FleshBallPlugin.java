@@ -19,6 +19,7 @@ public class FleshBallPlugin extends JavaPlugin {
     public void onEnable() {
         this.getCommand("fleshball").setExecutor(new FleshBallCommand(this));
 
+        this.getServer().getPluginManager().registerEvents(new FleshBallDamageListener(this), this);
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -58,4 +59,10 @@ public class FleshBallPlugin extends JavaPlugin {
     public FleshBallCluster getCluster(UUID coreId) {
         return activeClusters.get(coreId);
     }
+
+    public Map<UUID, FleshBallCluster> getActiveClusters() {
+        return this.activeClusters;
+    }
+
+
 }

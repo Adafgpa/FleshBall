@@ -1,5 +1,8 @@
 package com.graveyard.fleshball;
 
+import org.bukkit.NamespacedKey;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.ArmorStand;
@@ -143,10 +146,13 @@ public class DisplayCorpse {
 
         anchorVehicle = spawnLoc.getWorld().spawn(spawnLoc, ArmorStand.class, stand -> {
             stand.setVisible(false);
-            stand.setMarker(true);
+            stand.setMarker(false);
             stand.setSmall(true); 
             stand.setGravity(false);
             stand.setPersistent(false);
+
+            NamespacedKey coreKey = new NamespacedKey(JavaPlugin.getPlugin(FleshBallPlugin.class), "associated_core");
+            stand.getPersistentDataContainer().set(coreKey, PersistentDataType.STRING, centralCore.getUniqueId().toString());
         });
 
         // 1. Pick a random material variant for each limb from our pools

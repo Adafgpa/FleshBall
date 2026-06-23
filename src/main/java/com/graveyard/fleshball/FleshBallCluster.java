@@ -13,6 +13,7 @@ public class FleshBallCluster {
 
     private double currentAngle = 0.0;
     private double rotationSpeed = 0.0;
+    private double damageTransferCoefficient = 0.0;
 
     public FleshBallCluster(Entity centerCore, int targetCount, double maxRadius) {
         this.centerCore = centerCore;
@@ -61,13 +62,21 @@ public class FleshBallCluster {
         return this.centerCore;
     }
 
-    // NEW: Getters and setters for controlling rotation intensity dynamically
     public double getRotationSpeed() {
         return this.rotationSpeed;
     }
 
     public void setRotationSpeed(double rotationSpeed) {
         this.rotationSpeed = rotationSpeed;
+    }
+
+    // --- ADD THESE METHODS ANYWHERE IN THE CLASS ---
+    public double getDamageTransferCoefficient() {
+        return this.damageTransferCoefficient;
+    }
+
+    public void setDamageTransferCoefficient(double damageTransferCoefficient) {
+        this.damageTransferCoefficient = damageTransferCoefficient;
     }
 
     // UPDATED: Advances the orbit tracker and forwards the angle to the corpses
