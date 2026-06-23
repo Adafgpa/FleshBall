@@ -54,4 +54,8 @@ public class FleshBallPlugin extends JavaPlugin {
     public void registerCluster(UUID coreId, FleshBallCluster cluster) {
         activeClusters.put(coreId, cluster);
     }
+
+    public FleshBallCluster getCluster(UUID coreId) {
+        return activeClusters.get(coreId);
+    }
 }

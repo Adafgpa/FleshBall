@@ -11,6 +11,10 @@ public class FleshBallCluster {
     private final double maxRadius;
     private final int targetCount;
 
+    // NEW: Core fields for dynamic bowl rotation
+    private double rotationSpeed = 0.0; // In radians per tick (e.g., 0.05)
+    private double currentRotationAngle = 0.0;
+
     public FleshBallCluster(Entity centerCore, int targetCount, double maxRadius) {
         this.centerCore = centerCore;
         this.targetCount = targetCount;
@@ -54,46 +58,33 @@ public class FleshBallCluster {
         }
     }
 
-    // public void generateBowlMatrix(int targetCount, double r, double R) {
-    //     this.clusterCorpses.clear(); 
-        
-    //     double goldenRatioPhi = Math.PI * (3.0 - Math.sqrt(5.0)); 
-
-    //     for (int i = 0; i < targetCount; i++) {
-    //         // 1. Base Spherical Distribution (Fibonacci)
-    //         double normalizedY = 1.0 - ((double) i / (targetCount - 1)) * 2.0;
-    //         double phi = Math.acos(normalizedY); // 0 to PI
-    //         double theta = i * goldenRatioPhi;
-
-    //         // 2. Apply the Convex Bowl Transformation
-    //         double u = phi / Math.PI;
-    //         double mappedY = -r * u;
-    //         double H = R * Math.pow(1.0 - u, 2.0);
-
-    //         double mappedX = H * Math.cos(theta);
-    //         double mappedZ = H * Math.sin(theta);
-
-    //         Vector structuralOffset = new Vector(mappedX, mappedY, mappedZ);
-
-    //         // 3. Calculate the true outward normal vector of the bowl surface
-    //         double nX = r * Math.cos(theta);
-    //         double nY = -2.0 * R * (1.0 - u);
-    //         double nZ = r * Math.sin(theta);
-    //         Vector outwardNormal = new Vector(nX, nY, nZ).normalize();
-
-    //         // Pass the generated normal down to the Corpse!
-    //         clusterCorpses.add(new DisplayCorpse(centerCore, structuralOffset, outwardNormal));
-    //     }
-    // }
-
     public Entity getCenterCore() {
         return this.centerCore;
     }
 
-    // Executes the control loop for the physics engine
+    // NEW: Getters and setters for controlling rotation intensity dynamically
+    public double getRotationSpeed() {
+        return this.rotationSpeed;
+    }
+
+    public void setRotationSpeed(double rotationSpeed) {
+        this.rotationSpeed = rotationSpeed;
+    }
+
+    // Updated control loop to calculate global matrix rotation angles
     public void tickCluster(Vector currentCoreVelocity) {
+        if (rotationSpeed != 0.0) {
+            currentRotationAngle += rotationSpeed;
+            // Keep bounds wrapped between 0 and 2PI safely
+            if (currentRotationAngle > Math.PI * 2) {
+                currentRotationAngle -= Math.PI * 2;
+            } else if (currentRotationAngle < 0) {
+                currentRotationAngle += Math.PI * 2;
+            }
+        }
+
         for (DisplayCorpse corpse : clusterCorpses) {
-            corpse.tickPhysics(currentCoreVelocity);
+            corpse.tickPhysics(currentCoreVelocity, currentRotationAngle);
         }
     }
     

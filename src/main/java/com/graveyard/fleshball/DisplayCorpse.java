@@ -146,7 +146,7 @@ public class DisplayCorpse {
             stand.setMarker(true);
             stand.setSmall(true); 
             stand.setGravity(false);
-            stand.setPersistent(true);
+            stand.setPersistent(false);
         });
 
         // 1. Pick a random material variant for each limb from our pools
@@ -176,7 +176,7 @@ public class DisplayCorpse {
         limbs.addAll(List.of(torso, head, leftArm, rightArm, leftLeg, rightLeg));
         
         // Execute frame immediately on spawn to register world vectors safely
-        animateFlailing();
+        animateFlailing(0.0);
     }
 
     /**
@@ -196,13 +196,15 @@ public class DisplayCorpse {
         return name.endsWith("_HEAD") || name.endsWith("_SKULL");
     }
 
-    public void tickPhysics(Vector coreVelocity) {
+    public void tickPhysics(Vector coreVelocity, double rotationAngle) {
         if (centralCore == null || !centralCore.isValid() || anchorVehicle == null || !anchorVehicle.isValid()) {
             despawn();
             return;
         }
 
         Location coreLoc = centralCore.getLocation();
+
+        Vector rotatedOffset = nominalOffset.clone().rotateAroundY(rotationAngle);
         Vector targetPos = coreLoc.toVector().add(nominalOffset);
         
         Vector z = currentPos.clone().subtract(targetPos);
@@ -227,7 +229,7 @@ public class DisplayCorpse {
         animateFlailing();
     }
     
-    private void animateFlailing() {
+    private void animateFlailing(double rotationAngle) {
         if (anchorVehicle == null || !anchorVehicle.isValid()) return;
 
         float speed = (float) this.velocity.length();
@@ -235,7 +237,10 @@ public class DisplayCorpse {
         float swingAngle = wave * (0.1f + (speed * 0.05f));
 
         Quaternionf localWrithe = new Quaternionf().rotateX(swingAngle).rotateZ(swingAngle * 0.3f);
-        Quaternionf torsoRotation = new Quaternionf(baseOutwardRotation).mul(localWrithe);
+        
+        // NEW: Premultiply base matrix output with our current horizontal orbit heading rotation
+        Quaternionf rotatedBaseOutward = new Quaternionf().rotateY((float) rotationAngle).mul(baseOutwardRotation);
+        Quaternionf torsoRotation = new Quaternionf(rotatedBaseOutward).mul(localWrithe);
 
         Vector3f localLeftShoulder  = new Vector3f(jointLeftShoulder).rotate(torsoRotation);
         Vector3f localRightShoulder = new Vector3f(jointRightShoulder).rotate(torsoRotation);
@@ -246,7 +251,7 @@ public class DisplayCorpse {
         Quaternionf headRotation = new Quaternionf(torsoRotation).rotateY((float) Math.PI);
         head.updateTransformation(new Vector3f(offsetHead).rotate(torsoRotation), headRotation);
 
-        Vector3f forwardDir = new Vector3f(0, 0, 1).rotate(baseOutwardRotation);
+        Vector3f forwardDir = new Vector3f(0, 0, 1).rotate(rotatedBaseOutward);
         float yawAngle = (float) Math.atan2(forwardDir.x, forwardDir.z);
         
         Quaternionf limbRotation = new Quaternionf()
