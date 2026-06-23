@@ -238,7 +238,7 @@ public class DisplayCorpse {
 
         Quaternionf localWrithe = new Quaternionf().rotateX(swingAngle).rotateZ(swingAngle * 0.3f);
         
-        // NEW: Premultiply base matrix output with our current horizontal orbit heading rotation
+        // FIXED: Update base outward rotation structure to account for the orbit's dynamic direction change
         Quaternionf rotatedBaseOutward = new Quaternionf().rotateY((float) rotationAngle).mul(baseOutwardRotation);
         Quaternionf torsoRotation = new Quaternionf(rotatedBaseOutward).mul(localWrithe);
 
