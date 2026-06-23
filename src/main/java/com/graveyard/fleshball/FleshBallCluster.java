@@ -102,9 +102,9 @@ public class FleshBallCluster {
         // Run your updated mathematical distribution logic using the cached instance fields!
         generateBowlMatrix(this.targetCount, this.maxRadius);
         
-        // Follow up with your standard rendering/spawn execution logic loops
+        // Loop through and physically spawn every corpse display entity into the world
         for (DisplayCorpse corpse : clusterCorpses) {
-            // your corpse spawning logic...
+            corpse.spawn(); // <--- Add this live execution line!
         }
     }
 
