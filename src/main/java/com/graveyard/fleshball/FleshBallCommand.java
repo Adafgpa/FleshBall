@@ -22,18 +22,18 @@ public class FleshBallCommand implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        // 1. SECURITY CHECK: Only enforce permissions if the sender is a real player.
-        // Command blocks, plugins, and console automatically bypass this check.
+        // 1. Permission Safety Check
         if (sender instanceof Player) {
             Player player = (Player) sender;
             if (!player.isOp() && !player.hasPermission("fleshball.admin")) {
                 sender.sendMessage(ChatColor.RED + "You do not have permission to execute this command!");
-                return true;
+                return true; // Return true so Bukkit doesn't spit out raw plugin.yml help text
             }
         }
 
+        // 2. Fallback to help menu if no arguments are provided
         if (args.length < 1) {
-            sendUsageMessage(sender);
+            sendHelpMessage(sender);
             return true;
         }
 
@@ -46,8 +46,12 @@ public class FleshBallCommand implements CommandExecutor {
                 return handleSpin(sender, args);
             case "damage":
                 return handleDamageCoefficient(sender, args);
+            case "help":
+            case "?":
+                sendHelpMessage(sender);
+                return true;
             default:
-                sendUsageMessage(sender);
+                sender.sendMessage(ChatColor.RED + "Unknown subcommand. Type " + ChatColor.YELLOW + "/fleshball help" + ChatColor.RED + " for a list of valid controls.");
                 return true;
         }
     }
@@ -62,21 +66,18 @@ public class FleshBallCommand implements CommandExecutor {
         String targetArg = args[1];
         Location originLocation = getSenderLocation(sender);
 
-        // 1. Check if targeting 'me' (Only valid if run by a player)
         if (targetArg.equalsIgnoreCase("me")) {
             if (sender instanceof Player) {
                 coreEntity = (Player) sender;
             } else {
-                sender.sendMessage(ChatColor.RED + "The 'me' argument can only be used by players in-game.");
+                sender.sendMessage(ChatColor.RED + "The 'me' target parameter can only be utilized by active in-game players.");
                 return true;
             }
         } else {
-            // 2. Check if targeting an active online player name (Great for Console/Command Blocks)
             Player targetPlayer = org.bukkit.Bukkit.getPlayer(targetArg);
             if (targetPlayer != null) {
                 coreEntity = targetPlayer;
             } else {
-                // 3. Otherwise, treat it as a standalone EntityType to spawn fresh
                 try {
                     EntityType type = EntityType.valueOf(targetArg.toUpperCase());
                     if (originLocation == null) {
@@ -111,7 +112,7 @@ public class FleshBallCommand implements CommandExecutor {
         cluster.spawn();
         plugin.registerCluster(coreEntity.getUniqueId(), cluster);
 
-        sender.sendMessage(ChatColor.GREEN + "Swarm cleanly initialized onto core: " + coreEntity.getType().name());
+        sender.sendMessage(ChatColor.GREEN + "Swarm cleanly initialized onto core: " + ChatColor.AQUA + coreEntity.getType().name());
         return true;
     }
 
@@ -125,7 +126,6 @@ public class FleshBallCommand implements CommandExecutor {
             double speed = Double.parseDouble(args[1]);
             FleshBallCluster cluster = null;
 
-            // Optional argument lets you point directly to a player's cluster from the console
             if (args.length >= 3) {
                 Player targetedPlayer = org.bukkit.Bukkit.getPlayer(args[2]);
                 if (targetedPlayer != null) {
@@ -198,9 +198,6 @@ public class FleshBallCommand implements CommandExecutor {
         return true;
     }
 
-    /**
-     * Resolves spatial context positions depending on what source fired the execution thread.
-     */
     private Location getSenderLocation(CommandSender sender) {
         if (sender instanceof Player) {
             return ((Player) sender).getLocation();
@@ -209,7 +206,7 @@ public class FleshBallCommand implements CommandExecutor {
         } else if (sender instanceof org.bukkit.entity.Entity) {
             return ((org.bukkit.entity.Entity) sender).getLocation();
         }
-        return null; // Signals ConsoleCommandSender or Remote Plugins
+        return null; 
     }
 
     private FleshBallCluster findNearestCluster(Location loc) {
@@ -230,10 +227,12 @@ public class FleshBallCommand implements CommandExecutor {
         return closestCluster;
     }
 
-    private void sendUsageMessage(CommandSender sender) {
-        sender.sendMessage(ChatColor.GOLD + "=== FleshBall External Control Usage ===");
-        sender.sendMessage(ChatColor.YELLOW + "/fleshball spawn <me|PlayerName|EntityType> [density] [radius]");
-        sender.sendMessage(ChatColor.YELLOW + "/fleshball spin <speed> [near_player]");
-        sender.sendMessage(ChatColor.YELLOW + "/fleshball damage <coefficient> [near_player]");
+    private void sendHelpMessage(CommandSender sender) {
+        sender.sendMessage(ChatColor.GOLD + "========== " + ChatColor.RED + "FleshBall Admin Controls" + ChatColor.GOLD + " ==========");
+        sender.sendMessage(ChatColor.YELLOW + "/fleshball help " + ChatColor.GRAY + "- Displays this management index menu.");
+        sender.sendMessage(ChatColor.YELLOW + "/fleshball spawn <me|PlayerName|EntityType> [density] [radius] " + ChatColor.GRAY + "- Spawns a floating orbital shield.");
+        sender.sendMessage(ChatColor.YELLOW + "/fleshball spin <speed> [near_player] " + ChatColor.GRAY + "- Alters orbit velocity dynamics.");
+        sender.sendMessage(ChatColor.YELLOW + "/fleshball damage <coefficient> [near_player] " + ChatColor.GRAY + "- Sets boss proxy hit absorption (e.g. 0.2 = 20%).");
+        sender.sendMessage(ChatColor.GOLD + "=============================================");
     }
 }

@@ -5,5 +5,7 @@ api-version: 1.21
 
 commands:
   fleshball:
-    description: Spawns a FleshBall swarm.
-    usage: /fleshball spawn <type> [density]
+    description: FleshBall swarm master management framework command.
+    usage: /fleshball help
+    permission: fleshball.admin
+    permission-message: §cYou do not have permission to execute this command!
