@@ -26,6 +26,7 @@ public class LimbNode {
 
         this.displayEntity = spawnLoc.getWorld().spawn(spawnLoc, BlockDisplay.class, entity -> {
             entity.setBlock(org.bukkit.Bukkit.createBlockData(blockMaterial));
+            entity.setPersistent(false);
             applyInitialTransform(entity, scale);
         });
     }
@@ -35,6 +36,7 @@ public class LimbNode {
         // Items naturally pivot from their true center, no correction needed!
         this.displayEntity = spawnLoc.getWorld().spawn(spawnLoc, ItemDisplay.class, entity -> {
             entity.setItemStack(visualItem);
+            entity.setPersistent(false);
             entity.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.HEAD);
             applyInitialTransform(entity, scale);
         });
@@ -80,7 +82,7 @@ public class LimbNode {
     }
 
     public void destroy() {
-        if (displayEntity != null && displayEntity.isValid()) {
+        if (displayEntity != null) {
             displayEntity.remove();
         }
     }
