@@ -28,8 +28,9 @@ public class FleshBallCommand implements CommandExecutor {
 
         Player player = (Player) sender;
 
+        // Updated usage string to indicate the optional radius parameter
         if (args.length < 2 || !args[0].equalsIgnoreCase("spawn")) {
-            player.sendMessage(ChatColor.RED + "Usage: /fleshball spawn <me|EntityType> [density]");
+            player.sendMessage(ChatColor.RED + "Usage: /fleshball spawn <me|EntityType> [density] [radius]");
             return true;
         }
 
@@ -57,7 +58,7 @@ public class FleshBallCommand implements CommandExecutor {
             }
         }
 
-        // 2. Parse Density
+        // 2. Parse Density (Target Count)
         int density = 14;
         if (args.length >= 3) {
             try {
@@ -67,12 +68,22 @@ public class FleshBallCommand implements CommandExecutor {
             }
         }
 
-        // 3. Initialize and Register
-        FleshBallCluster cluster = new FleshBallCluster(coreEntity, density);
+        // 3. Parse Custom Radius
+        double radius = 4.0;
+        if (args.length >= 4) {
+            try {
+                radius = Double.parseDouble(args[3]);
+            } catch (NumberFormatException e) {
+                player.sendMessage(ChatColor.YELLOW + "Invalid radius. Defaulting to 4.0.");
+            }
+        }
+
+        // 4. Initialize and Register (Passing the new radius param down)
+        FleshBallCluster cluster = new FleshBallCluster(coreEntity, density, radius);
         cluster.spawn();
         plugin.registerCluster(coreEntity.getUniqueId(), cluster);
 
-        player.sendMessage(ChatColor.GREEN + "Swarm initialized with core: " + coreEntity.getType());
+        player.sendMessage(ChatColor.GREEN + "Swarm initialized with core: " + coreEntity.getType() + " | Radius: " + radius);
         return true;
     }
 }
