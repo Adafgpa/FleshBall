@@ -22,7 +22,7 @@ public class DisplayCorpse {
     public static final Material[] TORSO_POOL = {
         Material.COBBLESTONE,
         Material.NETHERRACK,
-        Material.CRIMSON_WART_BLOCK,
+        Material.NETHER_WART_BLOCK,
         Material.BONE_BLOCK,
         Material.MUD,
         Material.MAGMA_BLOCK
