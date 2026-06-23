@@ -79,6 +79,7 @@ public class DisplayCorpse {
     private final double zeta = 0.5;
     private double timeElapsed = 0.0;
     private final double randomPhase;
+    private final float randomRoll;
     
     private ArmorStand anchorVehicle; 
     
@@ -107,6 +108,9 @@ public class DisplayCorpse {
         this.currentPos = centralCore.getLocation().toVector().add(nominalOffset);
         this.randomPhase = ThreadLocalRandom.current().nextDouble(0, Math.PI * 2);
 
+        // Roll a completely random 360-degree angle (in radians) for this specific corpse
+        this.randomRoll = (float) ThreadLocalRandom.current().nextDouble(0, Math.PI * 2);
+
         calculateBaseNormalRotation();
     }
 
@@ -130,7 +134,7 @@ public class DisplayCorpse {
         rotMatrix.setColumn(1, yAxis);
         rotMatrix.setColumn(2, zAxis);
         
-        this.baseOutwardRotation = new Quaternionf().setFromNormalized(rotMatrix);
+        this.baseOutwardRotation = new Quaternionf().setFromNormalized(rotMatrix).rotateZ(randomRoll);
     }
 
     public void spawn() {
@@ -227,8 +231,12 @@ public class DisplayCorpse {
         if (anchorVehicle == null || !anchorVehicle.isValid()) return;
 
         float speed = (float) this.velocity.length();
-        float wave = (float) Math.sin((timeElapsed * (8.0 + speed)) + randomPhase);
-        float swingAngle = wave * (0.2f + (speed * 0.15f));
+        // We retain a high frequency frequency shift so they shake quickly when moving...
+        float wave = (float) Math.sin((timeElapsed * (8.0 + speed * 0.5)) + randomPhase);
+    
+        // FIX: Dynamic attenuation curve. Instead of growing with speed, 
+        // the amplitude shrinks as speed increases, stabilizing the limbs during high-speed runs.
+        float swingAngle = wave * (0.2f / (1.0f + speed * 0.6f));
 
         Quaternionf localWrithe = new Quaternionf().rotateX(swingAngle).rotateZ(swingAngle * 0.3f);
         Quaternionf torsoRotation = new Quaternionf(baseOutwardRotation).mul(localWrithe);
