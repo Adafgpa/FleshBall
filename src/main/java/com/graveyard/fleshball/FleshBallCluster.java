@@ -58,37 +58,27 @@ public class FleshBallCluster {
     public double getDamageTransferCoefficient() { return this.damageTransferCoefficient; }
     public void setDamageTransferCoefficient(double damageTransferCoefficient) { this.damageTransferCoefficient = damageTransferCoefficient; }
 
-    // UPDATED: Integrates directional shield vectors dynamically down to the children
     public void tickCluster(Vector currentCoreVelocity) {
-        // 1. Advance the accumulation angle by our rotation speed
-        // (Note: Since rotationSpeed freezes to 0 when shielding, currentAngle stops changing,
-        // locking the 1/4 idle ammo corpses into a frozen, tight inner protective core!)
         this.currentAngle += this.rotationSpeed;
 
-        // 2. Continually update real-time player coordinates for active shields
         if (shieldsEnabled) {
             updateShieldDirections();
         }
 
-        // 3. Process individual positioning targets
         for (DisplayCorpse corpse : clusterCorpses) {
             if (shieldsEnabled) {
                 ShieldInstance shield = findShieldForCorpse(corpse);
                 if (shield != null) {
-                    // This corpse belongs to a shield! Extract its specific index within that group
                     int subIndex = shield.getAssignedCorpses().indexOf(corpse);
                     Vector gridOffset = calculateShieldGridOffset(subIndex, shield.getDirection());
                     corpse.setShieldOverride(gridOffset);
                 } else {
-                    // This corpse is a part of our 1/4 reserved idle ammo pool
                     corpse.clearShieldOverride();
                 }
             } else {
-                // Ensure no leftover states exist when shield is offline
                 corpse.clearShieldOverride();
             }
 
-            // 4. Pass parameters down to the physics math engine
             corpse.tickPhysics(currentCoreVelocity, this.currentAngle);
         }
     }
@@ -106,49 +96,43 @@ public class FleshBallCluster {
         }
     }
 
-    // UPDATED: Implements the 1/4 Idle Ammo vs 3/4 Shield Partition Matrix
     public void activateMultiShields() {
         if (shieldsEnabled || centerCore == null || !centerCore.isValid()) return;
 
-        // 1. Scan for up to 3 nearby survival players within 30 blocks
+        // Grabs up to 3 nearby players (bypasses creative mode filters for ease of testing)
         java.util.List<org.bukkit.entity.Player> targets = centerCore.getWorld()
             .getNearbyEntities(centerCore.getLocation(), 30, 30, 30).stream()
             .filter(e -> e instanceof org.bukkit.entity.Player)
             .map(e -> (org.bukkit.entity.Player) e)
-            .filter(p -> p.getGameMode() == org.bukkit.GameMode.SURVIVAL || p.getGameMode() == org.bukkit.GameMode.ADVENTURE)
-            .limit(3)
             .collect(java.util.stream.Collectors.toList());
 
         if (targets.isEmpty()) return; 
 
-        // 2. Freeze the rotation engine
         this.originalRotationSpeed = this.rotationSpeed;
         this.rotationSpeed = 0.0;
         this.shieldsEnabled = true;
         this.activeShields.clear();
 
-        // 3. Shuffle a cloned list to randomize assignments (Fixed collection name compile error)
         java.util.List<DisplayCorpse> shuffled = new java.util.ArrayList<>(this.clusterCorpses);
         java.util.Collections.shuffle(shuffled);
 
         int totalCount = shuffled.size();
-        int idleAmmoCount = totalCount / 4; // Reserves exactly 25% of bodies as idle ammo
+        int idleAmmoCount = totalCount / 4; 
 
-        // Extract the remaining 75% pool for defensive deployment
         java.util.List<DisplayCorpse> shieldPool = shuffled.subList(idleAmmoCount, totalCount);
-        int shieldCount = targets.size();
+        int shieldCount = Math.min(targets.size(), 3); 
 
         if (shieldCount > 0 && !shieldPool.isEmpty()) {
             int corpsesPerShield = shieldPool.size() / shieldCount;
 
-            // 4. Slice the shield pool into even segments per target player
             for (int i = 0; i < shieldCount; i++) {
                 int startIdx = i * corpsesPerShield;
                 int endIdx = (i == shieldCount - 1) ? shieldPool.size() : startIdx + corpsesPerShield;
 
                 java.util.List<DisplayCorpse> subList = new java.util.ArrayList<>(shieldPool.subList(startIdx, endIdx));
+                
+                // Track direct player profiles
                 ShieldInstance shield = new ShieldInstance(targets.get(i), subList);
-
                 activeShields.add(shield);
             }
         }
@@ -181,7 +165,6 @@ public class FleshBallCluster {
                 .add(upLocal.multiply(yOffset));
     }
 
-    // UPDATED: Cleanses the child overrides completely on shutdown
     public void deactivateMultiShields() {
         if (!shieldsEnabled) return;
         
@@ -198,7 +181,9 @@ public class FleshBallCluster {
         if (!shieldsEnabled || centerCore == null || !centerCore.isValid()) return;
 
         for (ShieldInstance shield : activeShields) {
-            org.bukkit.entity.Player player = org.bukkit.Bukkit.getPlayer(shield.getTargetPlayerUuid());
+            org.bukkit.entity.Player player = shield.getTargetPlayer();
+            
+            // Safe calculation for vanilla players and Citizens NPCs alike
             if (player != null && player.isValid()) {
                 org.bukkit.util.Vector dir = player.getLocation().toVector().subtract(centerCore.getLocation().toVector());
                 if (dir.lengthSquared() > 0) {
@@ -218,7 +203,6 @@ public class FleshBallCluster {
     }
 
     public static class ShieldInstance {
-        // FIXED: Swapped UUID for a concrete Player entity reference
         private final org.bukkit.entity.Player targetPlayer;
         private final java.util.List<DisplayCorpse> assignedCorpses;
         private org.bukkit.util.Vector targetDirection;
