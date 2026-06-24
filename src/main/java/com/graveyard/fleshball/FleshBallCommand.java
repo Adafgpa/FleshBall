@@ -27,7 +27,7 @@ public class FleshBallCommand implements CommandExecutor {
             Player player = (Player) sender;
             if (!player.isOp() && !player.hasPermission("fleshball.admin")) {
                 sender.sendMessage(ChatColor.RED + "You do not have permission to execute this command!");
-                return true; // Return true so Bukkit doesn't spit out raw plugin.yml help text
+                return true; 
             }
         }
 
@@ -46,6 +46,10 @@ public class FleshBallCommand implements CommandExecutor {
                 return handleSpin(sender, args);
             case "damage":
                 return handleDamageCoefficient(sender, args);
+            case "shield":
+                return handleShieldToggle(sender, args, true);
+            case "stopshield":
+                return handleShieldToggle(sender, args, false);
             case "help":
             case "?":
                 sendHelpMessage(sender);
@@ -198,6 +202,43 @@ public class FleshBallCommand implements CommandExecutor {
         return true;
     }
 
+    private boolean handleShieldToggle(CommandSender sender, String[] args, boolean activate) {
+        FleshBallCluster cluster = null;
+
+        // If an optional player argument is provided, look near them
+        if (args.length >= 2) {
+            Player targetedPlayer = org.bukkit.Bukkit.getPlayer(args[1]);
+            if (targetedPlayer != null) {
+                cluster = findNearestCluster(targetedPlayer.getLocation());
+            } else {
+                sender.sendMessage(ChatColor.RED + "Target player '" + args[1] + "' not found online.");
+                return true;
+            }
+        } else {
+            // Otherwise look near the executor
+            Location loc = getSenderLocation(sender);
+            if (loc == null) {
+                sender.sendMessage(ChatColor.RED + "Console must explicitly provide a nearby player name parameter: /fleshball " + args[0] + " <player>");
+                return true;
+            }
+            cluster = findNearestCluster(loc);
+        }
+
+        if (cluster == null) {
+            sender.sendMessage(ChatColor.RED + "No active fleshball clusters were found matching that location context.");
+            return true;
+        }
+
+        if (activate) {
+            cluster.activateMultiShields();
+            sender.sendMessage(ChatColor.GREEN + "Multi-Shield array " + ChatColor.AQUA + "activated" + ChatColor.GREEN + " for the cluster.");
+        } else {
+            cluster.deactivateMultiShields();
+            sender.sendMessage(ChatColor.YELLOW + "Multi-Shield array " + ChatColor.RED + "deactivated" + ChatColor.YELLOW + ". Resuming core matrix orbit rotation.");
+        }
+        return true;
+    }
+
     private Location getSenderLocation(CommandSender sender) {
         if (sender instanceof Player) {
             return ((Player) sender).getLocation();
@@ -233,6 +274,8 @@ public class FleshBallCommand implements CommandExecutor {
         sender.sendMessage(ChatColor.YELLOW + "/fleshball spawn <me|PlayerName|EntityType> [density] [radius] " + ChatColor.GRAY + "- Spawns a floating orbital shield.");
         sender.sendMessage(ChatColor.YELLOW + "/fleshball spin <speed> [near_player] " + ChatColor.GRAY + "- Alters orbit velocity dynamics.");
         sender.sendMessage(ChatColor.YELLOW + "/fleshball damage <coefficient> [near_player] " + ChatColor.GRAY + "- Sets boss proxy hit absorption (e.g. 0.2 = 20%).");
+        sender.sendMessage(ChatColor.YELLOW + "/fleshball shield [near_player] " + ChatColor.GRAY + "- Forces 75% of corpses to form target-tracking shields.");
+        sender.sendMessage(ChatColor.YELLOW + "/fleshball stopshield [near_player] " + ChatColor.GRAY + "- Recalls shields back to default mathematical orbit mapping.");
         sender.sendMessage(ChatColor.GOLD + "=============================================");
     }
 }
