@@ -147,8 +147,8 @@ public class FleshBallCluster {
                 int endIdx = (i == shieldCount - 1) ? shieldPool.size() : startIdx + corpsesPerShield;
 
                 java.util.List<DisplayCorpse> subList = new java.util.ArrayList<>(shieldPool.subList(startIdx, endIdx));
-                ShieldInstance shield = new ShieldInstance(targets.get(i).getUniqueId(), subList);
-                
+                ShieldInstance shield = new ShieldInstance(targets.get(i), subList);
+
                 activeShields.add(shield);
             }
         }
@@ -199,7 +199,7 @@ public class FleshBallCluster {
 
         for (ShieldInstance shield : activeShields) {
             org.bukkit.entity.Player player = org.bukkit.Bukkit.getPlayer(shield.getTargetPlayerUuid());
-            if (player != null && player.isOnline()) {
+            if (player != null && player.isValid()) {
                 org.bukkit.util.Vector dir = player.getLocation().toVector().subtract(centerCore.getLocation().toVector());
                 if (dir.lengthSquared() > 0) {
                     shield.setDirection(dir.normalize());
@@ -218,17 +218,18 @@ public class FleshBallCluster {
     }
 
     public static class ShieldInstance {
-        private final java.util.UUID targetPlayerUuid;
+        // FIXED: Swapped UUID for a concrete Player entity reference
+        private final org.bukkit.entity.Player targetPlayer;
         private final java.util.List<DisplayCorpse> assignedCorpses;
         private org.bukkit.util.Vector targetDirection;
 
-        public ShieldInstance(java.util.UUID targetPlayerUuid, java.util.List<DisplayCorpse> assignedCorpses) {
-            this.targetPlayerUuid = targetPlayerUuid;
+        public ShieldInstance(org.bukkit.entity.Player targetPlayer, java.util.List<DisplayCorpse> assignedCorpses) {
+            this.targetPlayer = targetPlayer;
             this.assignedCorpses = assignedCorpses;
             this.targetDirection = new org.bukkit.util.Vector(1, 0, 0);
         }
 
-        public java.util.UUID getTargetPlayerUuid() { return targetPlayerUuid; }
+        public org.bukkit.entity.Player getTargetPlayer() { return targetPlayer; }
         public java.util.List<DisplayCorpse> getAssignedCorpses() { return assignedCorpses; }
         public org.bukkit.util.Vector getDirection() { return targetDirection; }
         public void setDirection(org.bukkit.util.Vector direction) { this.targetDirection = direction; }
