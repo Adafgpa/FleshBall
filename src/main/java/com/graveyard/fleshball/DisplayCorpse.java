@@ -5,7 +5,7 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.Interaction;
 import org.bukkit.entity.Entity;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
@@ -83,8 +83,10 @@ public class DisplayCorpse {
     private double timeElapsed = 0.0;
     private final double randomPhase;
     private final float randomRoll;
+
+    private Vector shieldOverride = null;
     
-    private ArmorStand anchorVehicle; 
+    private Interaction anchorVehicle;
     
     private LimbNode torso;
     private LimbNode head;
@@ -117,6 +119,10 @@ public class DisplayCorpse {
         calculateBaseNormalRotation();
     }
 
+    // NEW: Override control hooks
+    public void setShieldOverride(Vector offset) { this.shieldOverride = offset; }
+    public void clearShieldOverride() { this.shieldOverride = null; }
+
     private void calculateBaseNormalRotation() {
         Vector3f zAxis = new Vector3f(
                 (float) outwardNormal.getX(),
@@ -144,17 +150,18 @@ public class DisplayCorpse {
         Location spawnLoc = centralCore.getLocation().add(nominalOffset);
         spawnLoc.setDirection(new Vector(0, 0, 1));
 
-        anchorVehicle = spawnLoc.getWorld().spawn(spawnLoc, ArmorStand.class, stand -> {
-            stand.setVisible(false);
-            stand.setMarker(false);
-            stand.setSmall(true); 
-            stand.setGravity(false);
-            stand.setPersistent(false);
+        // Find your old anchorVehicle = ... block inside spawn() and replace it with this:
+        anchorVehicle = spawnLoc.getWorld().spawn(spawnLoc, Interaction.class, hitbox -> {
+            hitbox.setInteractionWidth(0.6f);  // Width of the hit detection box
+            hitbox.setInteractionHeight(0.9f); // Height of the hit detection box
+            hitbox.setResponsive(true);        // Sends localized attack feedback red-flashes/sounds to players
+            hitbox.setPersistent(true);
 
-            NamespacedKey coreKey = new NamespacedKey(JavaPlugin.getPlugin(FleshBallPlugin.class), "associated_core");
-            stand.getPersistentDataContainer().set(coreKey, PersistentDataType.STRING, centralCore.getUniqueId().toString());
+            // Link this specific hitbox tracker to the core boss entity
+            NamespacedKey coreKey = new NamespacedKey(org.bukkit.plugin.java.JavaPlugin.getPlugin(FleshBallPlugin.class), "associated_core");
+            hitbox.getPersistentDataContainer().set(coreKey, org.bukkit.persistence.PersistentDataType.STRING, centralCore.getUniqueId().toString());
         });
-
+        
         // 1. Pick a random material variant for each limb from our pools
         Material chosenTorso    = getRandomMaterial(TORSO_POOL);
         Material chosenHead     = getRandomMaterial(HEAD_POOL);
@@ -209,16 +216,20 @@ public class DisplayCorpse {
         }
 
         Location coreLoc = centralCore.getLocation();
+        Vector targetPos;
 
-        Vector rotatedOffset = nominalOffset.clone().rotateAroundY(rotationAngle);
-        Vector targetPos = coreLoc.toVector().add(rotatedOffset);
-        
+        // UPDATED: Dynamic destination intercept check
+        if (shieldOverride != null) {
+            targetPos = coreLoc.toVector().add(shieldOverride);
+        } else {
+            Vector rotatedOffset = nominalOffset.clone().rotateAroundY(rotationAngle);
+            targetPos = coreLoc.toVector().add(rotatedOffset);
+        }
+
         Vector z = currentPos.clone().subtract(targetPos);
         Vector relVelocity = this.velocity.clone().subtract(coreVelocity);
-        
-        Vector acceleration = relVelocity.multiply(-2.0 * zeta * omega0)
-                                .add(z.multiply(-omega0 * omega0));
-        
+        Vector acceleration = relVelocity.multiply(-2.0 * zeta * omega0).add(z.multiply(-omega0 * omega0));
+
         double dt = 0.05; 
         this.velocity.add(acceleration.multiply(dt));
         this.currentPos.add(this.velocity.clone().multiply(dt));
@@ -236,49 +247,40 @@ public class DisplayCorpse {
     }
     
     private void animateFlailing(double rotationAngle) {
-        if (anchorVehicle == null || !anchorVehicle.isValid()) return;
+            if (anchorVehicle == null || !anchorVehicle.isValid()) return;
 
-        float speed = (float) this.velocity.length();
-        float wave = (float) Math.sin((timeElapsed * (8.0 + speed)) + randomPhase);
-        float swingAngle = wave * (0.1f + (speed * 0.05f));
+            float speed = (float) this.velocity.length();
+            float wave = (float) Math.sin((timeElapsed * (8.0 + speed)) + randomPhase);
+            float swingAngle = wave * (0.1f + (speed * 0.05f));
 
-        Quaternionf localWrithe = new Quaternionf().rotateX(swingAngle).rotateZ(swingAngle * 0.3f);
-        
-        // Rotate the base outward direction matrix by the current orbit heading!
-        Quaternionf rotatedBaseOutward = new Quaternionf().rotateY((float) rotationAngle).mul(baseOutwardRotation);
-        Quaternionf torsoRotation = new Quaternionf(rotatedBaseOutward).mul(localWrithe);
-        
-        Vector3f localLeftShoulder  = new Vector3f(jointLeftShoulder).rotate(torsoRotation);
-        Vector3f localRightShoulder = new Vector3f(jointRightShoulder).rotate(torsoRotation);
-        Vector3f localLeftHip       = new Vector3f(jointLeftHip).rotate(torsoRotation);
-        Vector3f localRightHip      = new Vector3f(jointRightHip).rotate(torsoRotation);
-        
-        torso.updateTransformation(new Vector3f(0f, 0f, 0f), torsoRotation);
-        Quaternionf headRotation = new Quaternionf(torsoRotation).rotateY((float) Math.PI);
-        head.updateTransformation(new Vector3f(offsetHead).rotate(torsoRotation), headRotation);
+            Quaternionf localWrithe = new Quaternionf().rotateX(swingAngle).rotateZ(swingAngle * 0.3f);
+            Quaternionf rotatedBaseOutward = new Quaternionf().rotateY((float) rotationAngle).mul(baseOutwardRotation);
+            Quaternionf torsoRotation = new Quaternionf(rotatedBaseOutward).mul(localWrithe);
+            
+            Vector3f localLeftShoulder  = new Vector3f(jointLeftShoulder).rotate(torsoRotation);
+            Vector3f localRightShoulder = new Vector3f(jointRightShoulder).rotate(torsoRotation);
+            Vector3f localLeftHip       = new Vector3f(jointLeftHip).rotate(torsoRotation);
+            Vector3f localRightHip      = new Vector3f(jointRightHip).rotate(torsoRotation);
+            
+            torso.updateTransformation(new Vector3f(0f, 0f, 0f), torsoRotation);
+            Quaternionf headRotation = new Quaternionf(torsoRotation).rotateY((float) Math.PI);
+            head.updateTransformation(new Vector3f(offsetHead).rotate(torsoRotation), headRotation);
 
-        Vector3f forwardDir = new Vector3f(0, 0, 1).rotate(rotatedBaseOutward);
-        float yawAngle = (float) Math.atan2(forwardDir.x, forwardDir.z);
-        
-        Quaternionf limbRotation = new Quaternionf()
-                .rotateY(yawAngle) 
-                .rotateX(swingAngle * 1.2f) 
-                .rotateZ(swingAngle * 0.4f);
+            Vector3f forwardDir = new Vector3f(0, 0, 1).rotate(rotatedBaseOutward);
+            float yawAngle = (float) Math.atan2(forwardDir.x, forwardDir.z);
+            
+            Quaternionf limbRotation = new Quaternionf().rotateY(yawAngle).rotateX(swingAngle * 1.2f).rotateZ(swingAngle * 0.4f);
+            Vector3f limbCenterOffset = new Vector3f(0f, -0.3f, 0f).rotate(limbRotation);
 
-        Vector3f limbCenterOffset = new Vector3f(0f, -0.3f, 0f).rotate(limbRotation);
-
-        leftArm.updateTransformation(new Vector3f(localLeftShoulder).add(limbCenterOffset), limbRotation);
-        rightArm.updateTransformation(new Vector3f(localRightShoulder).add(limbCenterOffset), limbRotation);
-        leftLeg.updateTransformation(new Vector3f(localLeftHip).add(limbCenterOffset), limbRotation);
-        rightLeg.updateTransformation(new Vector3f(localRightHip).add(limbCenterOffset), limbRotation);
-    }
-
-    public void despawn() {
-        for (LimbNode limb : limbs) { 
-            limb.destroy(); 
+            leftArm.updateTransformation(new Vector3f(localLeftShoulder).add(limbCenterOffset), limbRotation);
+            rightArm.updateTransformation(new Vector3f(localRightShoulder).add(limbCenterOffset), limbRotation);
+            leftLeg.updateTransformation(new Vector3f(localLeftHip).add(limbCenterOffset), limbRotation);
+            rightLeg.updateTransformation(new Vector3f(localRightHip).add(limbCenterOffset), limbRotation);
         }
-        if (anchorVehicle != null) { 
-            anchorVehicle.remove(); 
+
+        public void despawn() {
+            for (LimbNode limb : limbs) { limb.destroy(); }
+            if (anchorVehicle != null) { anchorVehicle.remove(); }
         }
-    }
+
 }
